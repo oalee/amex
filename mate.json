@@ -1,0 +1,7 @@
+{
+    "project": "amex",
+    "override_params": {
+        "enabled": false,
+        "cuda": true
+    }
+}
