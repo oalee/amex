@@ -184,9 +184,9 @@ class FATConv1dClassifier(nn.Module):
         self.params = params
 
         try:
-            hidden_channel = self.parmas.hparams.hidden_dim
-            num_layers = self.parmas.hparams.num_layers
-            dropout = self.parmas.hparams.dropout
+            hidden_channel = self.params.hparams.hidden_dim
+            num_layers = self.params.hparams.num_layers
+            dropout = self.params.hparams.dropout
         except:
             pass
 
