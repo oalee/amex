@@ -151,7 +151,7 @@ class FitConv1dClassifier(nn.Module):
 
 
 class GaussianNoise(nn.Module):
-    def __init__(self, stddev, minmax=True):
+    def __init__(self, stddev, minmax=False):
         super().__init__()
         self.stddev = stddev
         self.minmax = minmax
@@ -166,6 +166,51 @@ class GaussianNoise(nn.Module):
             return x + noise
         else:
             return x
+
+
+class AmexConv1DClassifier(nn.Module):
+    def __init__(
+        self,
+        params,
+        in_channels=13,
+    ):
+        super().__init__()
+        self.params = params
+
+        # Dim = 64 + 188 = 242
+        self.layers = nn.Sequential(
+            Conv1DBlock(13, 64, 3, stride=1, padding=1),
+            Conv1DBlock(64, 128, 3, stride=1, padding=1),
+            Conv1DBlock(128, 256, 3, stride=1, padding=1),
+            nn.MaxPool1d(2, 2),  # 256x 126
+            Conv1DBlock(256, 512, 3, stride=1, padding=1),
+            nn.MaxPool1d(2, 2),  # 512 x 62
+            Conv1DBlock(512, 1024, 3, stride=1, padding=1),
+            nn.MaxPool1d(2, 2),  # 1024 x 31
+            Conv1DBlock(1024, 512, 3, stride=1, padding=1),
+            Conv1DBlock(512, 256, 3, stride=1, padding=1),
+            Conv1DBlock(256, 128, 3, stride=1, padding=1),
+        )
+
+        self.classifier = nn.Linear(128, 1)
+        self.act = nn.Sigmoid()
+        self.noise_layer = GaussianNoise(0.1)
+
+    def forward(self, x):
+        x = self.noise_layer(x)
+        x = x.squeeze(1)
+        if self.params.hparams.noise_dim > 0:
+            rand_noise = t.randn(*x.shape[:2], self.params.hparams.noise_dim).to(
+                x.device
+            )
+            x = t.cat([x, rand_noise], dim=2)
+
+        x = self.layers(x)
+        x = x.max(dim=2)[0]
+        x = x.view(x.size(0), -1)
+        x = self.classifier(x)
+        x = self.act(x)
+        return x
 
 
 # FAT Conv1d Classifier
