@@ -213,6 +213,72 @@ class AmexConv1DClassifier(nn.Module):
         return x
 
 
+class DoubleConv1DClassifier(nn.Module):
+    def __init__(
+        self,
+        params,
+        in_channels=13,
+    ):
+        super().__init__()
+        self.params = params
+
+        # Dim = 64 + 188 = 242
+        self.layers = nn.Sequential(
+            Conv1DBlock(13, 64, 3, stride=1, padding=1),
+            Conv1DBlock(64, 128, 3, stride=1, padding=1),
+            Conv1DBlock(128, 256, 3, stride=1, padding=1),
+            nn.MaxPool1d(2, 2),  # 256x 126
+            Conv1DBlock(256, 512, 3, stride=1, padding=1),
+            nn.MaxPool1d(2, 2),  # 512 x 62
+            Conv1DBlock(512, 1024, 3, stride=1, padding=1),
+            nn.MaxPool1d(2, 2),  # 1024 x 31
+            Conv1DBlock(1024, 512, 3, stride=1, padding=1),
+            Conv1DBlock(512, 256, 3, stride=1, padding=1),
+            Conv1DBlock(256, 128, 3, stride=1, padding=1),
+        )
+
+        # Dim -> 242 x 13
+        self.transpose_layers = nn.Sequential(
+            Conv1DBlock(252, 256, 3, stride=1, padding=1),
+            Conv1DBlock(256, 512, 3, stride=1, padding=1),
+            Conv1DBlock(512, 1024, 3, stride=1, padding=1),
+            nn.MaxPool1d(2, 2),  # 1024 x 6
+            Conv1DBlock(1024, 512, 3, stride=1, padding=1),
+            Conv1DBlock(512, 256, 3, stride=1, padding=1),
+            Conv1DBlock(256, 128, 3, stride=1, padding=1),
+        )
+
+        self.classifier = nn.Linear(128 * 2, 1)
+        self.act = nn.Sigmoid()
+        self.noise_layer = GaussianNoise(0.1)
+
+
+    def forward(self, x):
+        x = self.noise_layer(x)
+        x = x.squeeze(1)
+        if self.params.hparams.noise_dim > 0:
+            rand_noise = t.randn(*x.shape[:2], self.params.hparams.noise_dim).to(
+                x.device
+            )
+            x = t.cat([x, rand_noise], dim=2)
+
+        x_t = x.permute(0, 2, 1)
+
+        x = self.layers(x)
+        x = x.max(dim=2)[0]
+        x = x.view(x.size(0), -1)
+
+        x_t = self.transpose_layers(x_t)
+        x_t = x_t.max(dim=2)[0]
+        x_t = x_t.view(x_t.size(0), -1)
+
+        x = t.cat([x, x_t], dim=1)
+
+        x = self.classifier(x)
+        x = self.act(x)
+        return x
+
+
 # FAT Conv1d Classifier
 class FATConv1dClassifier(nn.Module):
     def __init__(
