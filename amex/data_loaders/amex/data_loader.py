@@ -2,12 +2,13 @@ import pytorch_lightning as pl
 import torch
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
-from torch.utils.data import DataLoader, TensorDataset
+from torch.utils.data import DataLoader, TensorDataset, Dataset
 
 import pandas as pd
 import numpy as np
 import os
 import ipdb
+import torch as t
 
 
 class CustomDataModule(pl.LightningDataModule):
@@ -67,15 +68,44 @@ class CustomDataModule(pl.LightningDataModule):
 
     def prepare_tensor_data(self):
         tensors = self.load_torch_tensor()
-        x_train, x_val, y_train, y_val = train_test_split(
-            tensors[0], tensors[1], test_size=0.1, random_state=1
+
+        # ipdb.set_trace()
+        x = tensors[0]
+
+        if self.params.contains("normalization"):
+
+            maxes = torch.tensor(
+                [torch.max(tensors[0][:, :, i]) for i in range(tensors[0].shape[2])]
+            )
+            mins = torch.tensor(
+                [torch.min(tensors[0][:, :, i]) for i in range(tensors[0].shape[2])]
+            )
+            normalize = lambda x: 2 * (x - mins) / (maxes - mins) - 1
+
+            if self.params.normalization == "tanh":
+                x = normalize(x)
+            elif self.params.normalization == "sigmoid":
+                normalize = lambda x: (x - mins) / (maxes - mins)
+                x = normalize(x)
+
+        y = tensors[1]
+
+        all_false = t.stack([x[i] for i in range(x.shape[0]) if y[i] == 0])
+        all_true = t.stack([x[i] for i in range(x.shape[0]) if y[i] == 1])
+
+        all_true_train, all_true_test = train_test_split(
+            all_true, test_size=0.1, random_state=1
+        )
+        all_false_train, all_false_test = train_test_split(
+            all_false, test_size=0.1, random_state=1
         )
 
-        self.train_tensor = TensorDataset(x_train, y_train)
+        # ipdb.set_trace()
+        self.train_tensor = CustomDataset(all_true_train, all_false_train)
 
-        self.val_tensor = TensorDataset(x_val, y_val)
+        self.val_tensor = CustomDataset(all_true_test, all_false_test)
 
-        self.test_tensor = TensorDataset(x_val, y_val)
+        self.test_tensor = CustomDataset(all_true_test, all_false_test)
 
         print("Shape of train data: ", tensors[0].shape)
 
@@ -108,11 +138,11 @@ class CustomDataModule(pl.LightningDataModule):
         torch.save(tensor_dict, os.path.join(self.data_location, "tensor_dict.pt"))
 
         # TRAIN
-        self.train_tensor = TensorDataset(X_train, y_train)
+        self.train_tensor = CustomDataset(X_train, y_train)
         # VAL
-        self.val_tensor = TensorDataset(X_val, y_val)
+        self.val_tensor = CustomDataset(X_val, y_val)
         # TEST
-        self.test_tensor = TensorDataset(X_test, y_test)
+        self.test_tensor = CustomDataset(X_test, y_test)
 
     def train_dataloader(self):
         return DataLoader(
@@ -134,3 +164,35 @@ class CustomDataModule(pl.LightningDataModule):
             batch_size=self.test_batch_size,
             num_workers=self.num_workers,
         )
+
+
+class CustomDataset(Dataset):
+    def __init__(self, false_samples: t.Tensor, true_samples: t.Tensor):
+
+        self.false_samples = false_samples
+        self.true_samples = true_samples
+
+        # length is minimum of the two
+        self.length = min(self.false_samples.shape[0], self.true_samples.shape[0])
+        self.true_sample_size = self.true_samples.shape[0]
+        self.false_sample_size = self.false_samples.shape[0]
+        print("False samples: ", self.false_samples.shape)
+        print("True samples: ", self.true_samples.shape)
+
+    def __len__(self):
+        return 100000
+
+    def __getitem__(self, idx):
+
+        # randomly return false or true
+        if torch.rand(1)[0] > 0.5:
+            idx = torch.randint(0, self.false_sample_size, (1,))[0]
+            return self.false_samples[idx], t.zeros(1)
+
+        else:
+            idx = torch.randint(0, self.true_sample_size, (1,))[0]
+            return self.true_samples[idx], t.ones(1)
+
+        return false_sample, true_sample
+
+        return self.data[idx], self.target[idx]

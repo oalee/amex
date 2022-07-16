@@ -250,7 +250,7 @@ class DoubleConv1DClassifier(nn.Module):
 
         self.classifier = nn.Linear(128 * 2, 1)
         self.act = nn.Sigmoid()
-        self.noise_layer = GaussianNoise(0.1)
+        self.noise_layer = GaussianNoise(0)
 
 
     def forward(self, x):

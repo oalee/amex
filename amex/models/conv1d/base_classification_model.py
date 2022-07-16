@@ -23,13 +23,17 @@ class BaseClassificationModel(LightningModule):
         self.loss = lambda x, y: self.critarion(x.flatten(), y.flatten())
 
     def forward(self, z: t.Tensor) -> t.Tensor:
-        out = self.generator(z)
+        out = self.classifier(z)
         return out
 
     def training_step(self, batch: tuple[t.Tensor, t.Tensor], batch_idx: int):
         x, labels = batch
         y_pred = self.classifier(x)
         loss = self.loss(y_pred, labels)
+
+        amex = self.amex_metric_pytorch(labels, y_pred)
+        self.log("metric", amex, prog_bar=True)
+
         return {"loss": loss}
 
     def training_epoch_end(self, outputs):
@@ -62,11 +66,14 @@ class BaseClassificationModel(LightningModule):
         # amex = self.amex_metric(labels.cpu().numpy(), y_pred.cpu().numpy())
         amex = self.amex_metric_pytorch(labels, y_pred)
 
+
         return {"test_loss": loss, "amex": amex}
 
     def test_epoch_end(self, outputs):
         avg_loss = t.stack([x["test_loss"] for x in outputs]).mean()
         amex = t.stack([x["amex"] for x in outputs]).mean()
+        self.log("test_loss", avg_loss, prog_bar=True)
+        self.log("amex", amex, prog_bar=True)
 
         return {"test_loss": avg_loss, "amex": amex}
 
