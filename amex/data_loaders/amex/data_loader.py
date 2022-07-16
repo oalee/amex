@@ -42,6 +42,7 @@ class CustomDataModule(pl.LightningDataModule):
 
     def __init__(self, params):
         super().__init__()
+        self.params = params
         self.data_location = params.data_location
         self.train_batch_size = params.train_batch_size
         self.test_batch_size = params.test_batch_size
