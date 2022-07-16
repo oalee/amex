@@ -1,5 +1,4 @@
 from pytorch_lightning import LightningModule
-from rx import generate
 import torch as t
 import torch.nn.functional as F
 from argparse import Namespace
