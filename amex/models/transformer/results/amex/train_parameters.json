@@ -1,0 +1,34 @@
+{
+    "optimizer": {
+        "type": "adam",
+        "lr": 0.0004,
+        "beta1": 0.5,
+        "beta2": 0.999,
+        "lr_scheduler": {
+            "type": "reduce_on_plateau",
+            "mode": "min",
+            "factor": 0.1,
+            "threshold": 1e-1,
+            "threshold_mode": "rel",
+            "patience": 0,
+            "monitor": "val_loss",
+            "verbose": true
+        },
+        "early_stopping_patience": 100,
+        "monitor": "val_loss"
+    },
+    "hparams":{
+        "in_features": 188,
+        "depth":6,
+        "embedding_dim":512,
+        "num_heads":8
+    },
+    "in_features": 188,
+    "cuda": true,
+    "train_batch_size": 16,
+    "test_batch_size": 32,
+    "max_epochs": 100,
+    "early_stopping_patience": 5,
+    "data_location": "./data/",
+    "data_loader": "amex"
+}
