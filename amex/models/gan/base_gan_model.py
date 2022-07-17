@@ -33,7 +33,25 @@ class BaseGANModel(LightningModule):
     def __discriminator_loss(self, x, y):
 
         pred_label = self.classifier(x)
-        pred_fake_x = self.discriminator(x, pred_label)
+
+        pred_label_idx = (
+            (pred_label.round().int() != y.squeeze().int()).nonzero().squeeze()
+        )
+
+        loss = t.tensor(0, device = x.device)
+        if pred_label_idx.numel() > 0:
+            # ipdb.set_trace()
+
+            pred_fake_x = self.discriminator(
+                x[pred_label_idx, ...], pred_label[pred_label_idx, ...]
+            )
+            try:
+                b_size = pred_fake_x.shape[0]
+            except:
+                b_size = 1
+            fake_t_label = t.zeros(b_size).to(x.device)
+            loss = self.__adversarial_loss(pred_fake_x, fake_t_label)
+
         pred_real_x = self.discriminator(x, y)
 
         # real invert 0 and 1
@@ -44,16 +62,16 @@ class BaseGANModel(LightningModule):
         fake_label = t.zeros(x.shape[0]).to(x.device)
 
         loss = [
-            2 * self.__adversarial_loss(pred_real_x, real_label),
-            self.__adversarial_loss(pred_fake_x, fake_label),
-            2 * self.__adversarial_loss(pred_y_invernt, fake_label),
+            self.__adversarial_loss(pred_real_x, real_label),
+            loss,
+            self.__adversarial_loss(pred_y_invernt, fake_label),
         ]
 
-        t_loss = t.stack(loss).sum() / 5
+        t_loss = t.stack(loss).sum() / 3
         self.log("D_loss", t_loss, prog_bar=True)
         self.log("D_Real_loss", loss[0], prog_bar=True)
         self.log("D_Fake_loss", loss[1], prog_bar=True)
-        self.log("D_Invert_loss", loss[2], prog_bar=True)
+        # self.log("D_Invert_loss", loss[2], prog_bar=True)
         return t_loss
 
     def __classifier_loss(self, x: t.Tensor, y):
@@ -62,14 +80,33 @@ class BaseGANModel(LightningModule):
 
         true_label = t.ones(x.shape[0]).to(x.device)
 
-        loss = self.params.hparams.adversarial_loss_weight * self.__adversarial_loss(
-            self.discriminator(x, pred_label), true_label
-        ) + self.params.hparams.classification_loss_weight * self.__adversarial_loss(
-            pred_label, y
+        pred_label_idx = (
+            (pred_label.round().int() != y.squeeze().int()).nonzero().squeeze()
+        )
+
+        loss = t.tensor(0, device = x.device)
+        if pred_label_idx.numel() > 0:
+            # ipdb.set_trace()
+            pred_fake_x = self.discriminator(
+                x[pred_label_idx, ...], pred_label[pred_label_idx, ...]
+            )
+            try:
+                b_size = pred_fake_x.shape[0]
+            except:
+                b_size = 1
+            t_label = t.ones(b_size).to(x.device)
+            loss = self.__adversarial_loss(pred_fake_x, t_label)
+
+        loss = (
+            self.params.hparams.adversarial_loss_weight
+            * self.__adversarial_loss(self.discriminator(x, pred_label), true_label)
+            + self.params.hparams.classification_loss_weight
+            * self.__adversarial_loss(pred_label, y)
+            + loss
         )
 
         return loss
-        
+
     def training_step(
         self, batch: tuple[t.Tensor, t.Tensor], batch_idx: int, optimizer_idx: int
     ):
@@ -96,7 +133,7 @@ class BaseGANModel(LightningModule):
         if optimizer_idx == 1:
 
             # pred_label = self.classifier(x)
-            loss =self.__classifier_loss(x, labels)
+            loss = self.__classifier_loss(x, labels)
             self.log("C_Loss", loss, prog_bar=True)
             return {"loss": loss}
             return {"loss": loss}

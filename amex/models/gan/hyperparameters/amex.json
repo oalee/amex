@@ -19,8 +19,8 @@
     },
     "hparams": {
         "in_features": 188,
-        "adversarial_loss_weight": 1e-1,
-        "classification_loss_weight": 10,
+        "adversarial_loss_weight": 1,
+        "classification_loss_weight": 1,
         "depth": 8,
         "embedding_dim": 256,
         "num_heads": 16
