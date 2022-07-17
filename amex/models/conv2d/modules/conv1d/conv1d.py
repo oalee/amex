@@ -3,7 +3,6 @@ from torch import nn
 import ipdb
 import torch.nn.functional as F
 
-
 class Conv1DBlock(nn.Module):
     def __init__(
         self,
@@ -54,10 +53,32 @@ class Conv1DBlock(nn.Module):
         nn.init.constant_(self.bn.weight, 1)
         nn.init.constant_(self.bn.bias, 0)
 
+class Conv1DLayers(nn.Module):
+    def __init__(self, layers, in_channels, out_channels, dropout=0.2) -> None:
+        super().__init__()
 
+        self.layers = nn.Sequential()
+        for i in range(layers):
+            self.layers.append(
+                Conv1DBlock(
+                    in_channels,
+                    out_channels,
+                    kernel_size=3,
+                    stride=1,
+                    padding=1,
+                    dilation=1,
+                    groups=1,
+                    bias=True,
+                    drouput=dropout,
+                    residual=False,
+                )
+            )
+            in_channels = out_channels
+
+    def forward(self, x):
+        x = self.layers(x)
+        return x
         
-
-
 
 # Conv1d Classifier
 class Conv1dClassifier(nn.Module):
@@ -101,7 +122,7 @@ class FitConv1dClassifier(nn.Module):
         super(FitConv1dClassifier, self).__init__()
 
         self.dim = 64
-        self.kernel_size = 4   
+        self.kernel_size = 4
         self.droupout = 0.01
         # 248x195
         self.conv1 = Conv1DBlock(
@@ -155,14 +176,14 @@ class FitConv1dClassifier(nn.Module):
 
 
 class GaussianNoise(nn.Module):
-    def __init__(self, stddev, minmax=True):
+    def __init__(self, stddev, minmax=False):
         super().__init__()
         self.stddev = stddev
         self.minmax = minmax
 
     def forward(self, x):
         if self.training:
-            if self.minmax: 
+            if self.minmax:
                 range = x.max() - x.min()
                 noise = t.randn(x.shape).to(x.device) * range * self.stddev
             else:
@@ -174,19 +195,20 @@ class GaussianNoise(nn.Module):
 
 # FAT Conv1d Classifier
 class FATConv1dClassifier(nn.Module):
-    def __init__(self, in_channels=248, num_class=4):
+    def __init__(
+        self, in_channels=13, hidden_channel=512, num_layers=6, dropout=0.3, num_class=1
+    ):
         super(FATConv1dClassifier, self).__init__()
-        hidden_channel = 512
-        num_layers = 6
+
         for i in range(num_layers):
 
-            # droput for the last layer is 0.05, first one 0 and the the rest 0.15
-            if i == 0:
-                drouput = 0.0
-            elif i == num_layers - 1:
-                drouput = 0.05
-            else:
-                drouput = 0.10
+            # # droput for the last layer is 0.05, first one 0 and the the rest 0.15
+            # if i == 0:
+            #     drouput = 0.05
+            # elif i == num_layers - 1:
+            #     drouput = 0.05
+            # else:
+            #     drouput = 0.50
 
             setattr(
                 self,
@@ -197,26 +219,29 @@ class FATConv1dClassifier(nn.Module):
                     kernel_size=3,
                     stride=1,
                     padding=1,
-                    drouput=drouput,
+                    drouput=dropout,
                 ),
             )
             in_channels = hidden_channel
 
         self.classifier = nn.Linear(hidden_channel, num_class)
         self.num_layers = num_layers
-        self.noise_layer = GaussianNoise(0.1, False)
+        self.noise_layer = GaussianNoise(0.05, False)
 
     def forward(self, x):
         # ipdb.set_trace()
         x = self.noise_layer(x)
         x = x.squeeze(1)
+        rand_noise = t.randn(*x.shape[:2], 64).to(x.device) 
+        # ipdb.set_trace()
+        x = t.cat([x, rand_noise], dim=2)
         for i in range(self.num_layers):
             x = getattr(self, f"conv{i}")(x)
 
         x = x.max(dim=2)[0]
         x = x.view(x.size(0), -1)
         x = self.classifier(x)
-        return F.softmax(x, dim=1)
+        return F.sigmoid(x)
 
 
 # Conv1d Classifier
@@ -284,7 +309,7 @@ class Conv1DResidual(nn.Module):
         self, in_channels, out_channels, kernel_size=16, stride=1, padding=1, drouput=0
     ):
         super(Conv1DResidual, self).__init__()
-        self.conv1 = nn.Conv1d( in_channels, out_channels, 1, stride, padding)
+        self.conv1 = nn.Conv1d(in_channels, out_channels, 1, stride, padding)
         self.bn1 = nn.BatchNorm1d(out_channels)
         self.relu = nn.ReLU()
         self.conv2 = nn.Conv1d(out_channels, out_channels, 16, stride, padding)
@@ -304,7 +329,7 @@ class Conv1DResidual(nn.Module):
             x = x + residual
         # if re_res.shape == x.shape:
         #     x = x + re_res
-        
+
         x = self.bn1(x)
         x = self.relu(x)
         x = self.do(x)

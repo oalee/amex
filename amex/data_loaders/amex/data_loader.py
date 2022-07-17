@@ -91,8 +91,12 @@ class CustomDataModule(pl.LightningDataModule):
 
         y = tensors[1]
 
-        all_false = t.stack([x[i] for i in range(x.shape[0]) if y[i] == 0])
-        all_true = t.stack([x[i] for i in range(x.shape[0]) if y[i] == 1])
+        false_indxes = (y == 0).nonzero().squeeze()
+        true_indxes = (y == 1).nonzero().squeeze()
+
+        all_false = x[false_indxes]
+        all_true = x[true_indxes]
+        # ipdb.set_trace()
 
         all_true_train, all_true_test = train_test_split(
             all_true, test_size=0.1, random_state=1

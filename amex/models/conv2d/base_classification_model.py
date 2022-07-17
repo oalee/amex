@@ -23,20 +23,13 @@ class BaseClassificationModel(LightningModule):
         self.loss = lambda x, y: self.critarion(x.flatten(), y.flatten())
 
     def forward(self, z: t.Tensor) -> t.Tensor:
-        out = self.classifier(z)
+        out = self.generator(z)
         return out
 
     def training_step(self, batch: tuple[t.Tensor, t.Tensor], batch_idx: int):
         x, labels = batch
         y_pred = self.classifier(x)
         loss = self.loss(y_pred, labels)
-
-        amex = self.amex_metric_pytorch(labels, y_pred)
-        self.log("metric", amex, prog_bar=True)
-
-        # l1 norm of the weights
-        # l1_norm = t.norm(self.classifier.weight, 1)
-
         return {"loss": loss}
 
     def training_epoch_end(self, outputs):
@@ -69,14 +62,11 @@ class BaseClassificationModel(LightningModule):
         # amex = self.amex_metric(labels.cpu().numpy(), y_pred.cpu().numpy())
         amex = self.amex_metric_pytorch(labels, y_pred)
 
-
         return {"test_loss": loss, "amex": amex}
 
     def test_epoch_end(self, outputs):
         avg_loss = t.stack([x["test_loss"] for x in outputs]).mean()
         amex = t.stack([x["amex"] for x in outputs]).mean()
-        self.log("test_loss", avg_loss, prog_bar=True)
-        self.log("amex", amex, prog_bar=True)
 
         return {"test_loss": avg_loss, "amex": amex}
 
@@ -119,4 +109,33 @@ class BaseClassificationModel(LightningModule):
         g = gini / gini_max
 
         return 0.5 * (g + d)
+
+    def amex_metric(self, y_true, y_pred):
+
+        y_true = y_pred.flatten()
+        y_pred = y_pred.flatten()
+
+        labels = np.transpose(np.array([y_true, y_pred]))
+        labels = labels[labels[:, 1].argsort()[::-1]]
+        weights = np.where(labels[:, 0] == 0, 20, 1)
+        cut_vals = labels[np.cumsum(weights) <= int(0.04 * np.sum(weights))]
+        top_four = np.sum(cut_vals[:, 0]) / np.sum(labels[:, 0])
+
+        gini = [0, 0]
+        for i in [1, 0]:
+            labels = np.transpose(np.array([y_true, y_pred]))
+            labels = labels[labels[:, i].argsort()[::-1]]
+            weight = np.where(labels[:, 0] == 0, 20, 1)
+            weight_random = np.cumsum(weight / np.sum(weight))
+            total_pos = np.sum(labels[:, 0] * weight)
+            cum_pos_found = np.cumsum(labels[:, 0] * weight)
+            lorentz = cum_pos_found / total_pos
+            gini[i] = np.sum((lorentz - weight_random) * weight)
+        print(
+            "G: {:.6f}, D: {:.6f}, ALL: {:6f}".format(
+                gini[1] / gini[0], top_four, 0.5 * (gini[1] / gini[0] + top_four)
+            )
+        )
+        return 0.5 * (gini[1] / gini[0] + top_four)
+
 

@@ -2,7 +2,31 @@ import torch as t
 from torch import nn
 import ipdb
 import torch.nn.functional as F
+class Conv1DLayers(nn.Module):
+    def __init__(self, layers, in_channels, out_channels, dropout=0.2) -> None:
+        super().__init__()
 
+        self.layers = nn.Sequential()
+        for i in range(layers):
+            self.layers.append(
+                Conv1DBlock(
+                    in_channels,
+                    out_channels,
+                    kernel_size=3,
+                    stride=1,
+                    padding=1,
+                    dilation=1,
+                    groups=1,
+                    bias=True,
+                    drouput=dropout,
+                    residual=False,
+                )
+            )
+            in_channels = out_channels
+
+    def forward(self, x):
+        x = self.layers(x)
+        return x
 
 class Conv1DBlock(nn.Module):
     def __init__(
@@ -239,7 +263,7 @@ class DoubleConv1DClassifier(nn.Module):
 
         # Dim -> 242 x 13
         self.transpose_layers = nn.Sequential(
-            Conv1DBlock(252, 256, 3, stride=1, padding=1),
+            Conv1DBlock(188, 256, 3, stride=1, padding=1),
             Conv1DBlock(256, 512, 3, stride=1, padding=1),
             Conv1DBlock(512, 1024, 3, stride=1, padding=1),
             nn.MaxPool1d(2, 2),  # 1024 x 6
@@ -248,21 +272,31 @@ class DoubleConv1DClassifier(nn.Module):
             Conv1DBlock(256, 128, 3, stride=1, padding=1),
         )
 
-        self.classifier = nn.Linear(128 * 2, 1)
+        self.classifier = nn.Linear(128, 1)
         self.act = nn.Sigmoid()
-        self.noise_layer = GaussianNoise(0)
-
+        self.noise_layer = GaussianNoise(0.02)
+        self.noise_two_layer = GaussianNoise(0.01)
 
     def forward(self, x):
+        x_t = self.noise_two_layer(x)
         x = self.noise_layer(x)
         x = x.squeeze(1)
         if self.params.hparams.noise_dim > 0:
             rand_noise = t.randn(*x.shape[:2], self.params.hparams.noise_dim).to(
                 x.device
             )
-            x = t.cat([x, rand_noise], dim=2)
+            # x = t.cat([x, rand_noise], dim=2)
+            rand_noise = t.randn(*x.shape[:2], self.params.hparams.noise_dim).to(
+                x.device
+            )
+            # x_t = t.cat([x_t, rand_noise], dim=2)
 
-        x_t = x.permute(0, 2, 1)
+            # shuffle dim 2
+            # idx = t.randperm(x.shape[2])
+            # x = x[:, :, idx]
+            # x_t = x_t[:, :, idx]
+
+        x_t = x_t.permute(0, 2, 1)
 
         x = self.layers(x)
         x = x.max(dim=2)[0]
@@ -272,7 +306,7 @@ class DoubleConv1DClassifier(nn.Module):
         x_t = x_t.max(dim=2)[0]
         x_t = x_t.view(x_t.size(0), -1)
 
-        x = t.cat([x, x_t], dim=1)
+        x = x + x_t
 
         x = self.classifier(x)
         x = self.act(x)

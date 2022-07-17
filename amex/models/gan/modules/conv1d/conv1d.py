@@ -89,22 +89,22 @@ class Conv1Discriminator(nn.Module):
         self.params = params
 
         self.embedding = nn.Embedding(2, self.params.hparams.in_features)
-        self.layers = Conv1DLayers(5, 13, 512, dropout=0.2)
+        self.layers = Conv1DLayers(6, 13, 512, dropout=0.2)
         # self.t_layers = Conv1DLayers(5, 376, 512, dropout=0.5)
         self.fc = nn.Linear(512, 1)
         self.act = nn.Sigmoid()
         self.noise = GaussianNoise(0)
 
-    def forward(self, x, y):
+    def forward(self, x: t.Tensor, y: t.Tensor):
 
         # y = y.unsqueeze(1)
-        cond = self.embedding(y.int())
+        cond = self.embedding(y.round().int())
         cond = cond.repeat(1, x.shape[1], 1)
         y = y.repeat(1, x.shape[1]).unsqueeze(-1)
         # x_t = self.noise(x)
-        x = self.noise(x)
+        # x = self.noise(x)
         # ipdb.set_trace()
-        x = t.cat([x, cond], dim=2)
+        x = x + cond # t.cat([x, cond], dim=2)
         # x_t = t.cat([x_t, cond], dim=2)
         # ipdb.set_trace()
         # x_t = x_t.permute(0, 2, 1)

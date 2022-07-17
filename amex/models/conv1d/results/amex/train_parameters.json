@@ -30,5 +30,6 @@
     "max_epochs": 100,
     "early_stopping_patience": 5,
     "env.data_location": "./data/",
-    "data_loader": "amex"
+    "data_loader": "amex",
+    "normalization": "none"
 }

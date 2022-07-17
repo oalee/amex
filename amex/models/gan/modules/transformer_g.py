@@ -116,7 +116,7 @@ class Transformer(nn.Module):
 
         self.transformer_blocks = nn.Sequential(*transformer_blocks)
         self.to_predictions = nn.Sequential(
-            nn.Linear(embedding_dim, self.in_features), nn.Tanh()
+            nn.Tanh()
         )
 
     def forward(self, y):

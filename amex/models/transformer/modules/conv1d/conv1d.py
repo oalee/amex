@@ -3,7 +3,6 @@ from torch import nn
 import ipdb
 import torch.nn.functional as F
 
-
 class Conv1DBlock(nn.Module):
     def __init__(
         self,
@@ -54,6 +53,32 @@ class Conv1DBlock(nn.Module):
         nn.init.constant_(self.bn.weight, 1)
         nn.init.constant_(self.bn.bias, 0)
 
+class Conv1DLayers(nn.Module):
+    def __init__(self, layers, in_channels, out_channels, dropout=0.2) -> None:
+        super().__init__()
+
+        self.layers = nn.Sequential()
+        for i in range(layers):
+            self.layers.append(
+                Conv1DBlock(
+                    in_channels,
+                    out_channels,
+                    kernel_size=3,
+                    stride=1,
+                    padding=1,
+                    dilation=1,
+                    groups=1,
+                    bias=True,
+                    drouput=dropout,
+                    residual=False,
+                )
+            )
+            in_channels = out_channels
+
+    def forward(self, x):
+        x = self.layers(x)
+        return x
+        
 
 # Conv1d Classifier
 class Conv1dClassifier(nn.Module):
@@ -151,7 +176,7 @@ class FitConv1dClassifier(nn.Module):
 
 
 class GaussianNoise(nn.Module):
-    def __init__(self, stddev, minmax=True):
+    def __init__(self, stddev, minmax=False):
         super().__init__()
         self.stddev = stddev
         self.minmax = minmax

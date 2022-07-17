@@ -19,17 +19,19 @@
     },
     "hparams": {
         "in_features": 188,
-        "depth": 6,
+        "adversarial_loss_weight": 1e-1,
+        "classification_loss_weight": 10,
+        "depth": 8,
         "embedding_dim": 256,
-        "num_heads": 8
+        "num_heads": 16
     },
     "in_features": 188,
     "cuda": true,
-    "train_batch_size": 32,
-    "test_batch_size": 64,
+    "train_batch_size": 64,
+    "test_batch_size": 128,
     "max_epochs": 100,
     "early_stopping_patience": 5,
     "data_location": "./data/",
     "data_loader": "amex",
-    "normalization": "tanh"
+    "normalization": "none"
 }

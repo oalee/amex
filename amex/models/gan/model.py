@@ -10,5 +10,5 @@ class Model(BaseGANModel):
     def __init__(self, params: Namespace):
         super().__init__(params)
         self.discriminator = Conv1Discriminator(params)
-        self.generator = Transformer(params)
+        # self.generator = Transformer(params)
         self.classifier = FATConv1dClassifier()
