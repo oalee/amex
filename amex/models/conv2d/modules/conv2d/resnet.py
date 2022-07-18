@@ -128,7 +128,10 @@ class ResNetClassifier(nn.Module):
         )
 
         self.out_net = nn.Sequential(
-            nn.Flatten(), nn.Linear(c_hidden[-1] * 3 + 188, self.num_classes)
+            nn.Flatten(),
+            nn.Linear(c_hidden[-1] * 3 + 188, 256),
+            nn.ReLU(),
+            nn.Linear(256, 1),
         )
 
         self.conv1d = Conv1DLayers(6, 13, 256, 0.2)
