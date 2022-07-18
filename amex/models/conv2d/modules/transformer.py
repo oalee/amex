@@ -119,6 +119,17 @@ class Transformer(nn.Module):
 
         self.noise = GaussianNoise(0.0001)
 
+    def hid(self, x):
+        batch_size, tweet_length, embedding_dim = x.shape
+        positions = torch.unsqueeze(
+            self.positional_embedding(torch.arange(tweet_length, device=x.device)), 0
+        ).expand(batch_size, tweet_length, embedding_dim)
+
+        x = x + positions
+        x = self.transformer_blocks(x)
+        x = x.max(dim=1)[0]
+        return x
+
     def forward(self, x):
         # size x: (batch_size, T, D)
 

@@ -3,6 +3,8 @@ import torch
 import torch as t
 import torch.nn.functional as F
 from torch import nn
+from ..conv1d.conv1d import Conv1DLayers, GaussianNoise
+from ..transformer import Transformer
 
 
 class ResNetBlock(nn.Module):
@@ -65,7 +67,7 @@ class ResNetClassifier(nn.Module):
         num_classes=1,
     ):
         super().__init__()
-
+        self.params = params
         self.c_hidden = c_hidden
         self.num_blocks = num_blocks
         self.in_channel = in_channel
@@ -120,10 +122,20 @@ class ResNetClassifier(nn.Module):
         # Mapping to classification output
         # Average pooling to get the final feature vector and reduce dimensionality
         self.output_net = nn.Sequential(
-            # nn.AdaptiveAvgPool2d((1, 1)),
+            nn.AdaptiveAvgPool2d((1, 1)),
             nn.Flatten(),
-            nn.Linear(c_hidden[-1] * 4, self.num_classes),
+            # nn.Linear(c_hidden[-1], self.num_classes),
         )
+
+        self.out_net = nn.Sequential(
+            nn.Flatten(), nn.Linear(c_hidden[-1] * 3 + 188, self.num_classes)
+        )
+
+        self.conv1d = Conv1DLayers(6, 13, 256, 0.2)
+        self.conv1dt = Conv1DLayers(6, 188, 256, 0.2)
+
+        self.transformer = Transformer(self.params)
+        self.noise = GaussianNoise(0.002)
 
     def init_params(self):
         # Fan-out focuses on the gradient distribution, and is commonly used in ResNets
@@ -140,16 +152,30 @@ class ResNetClassifier(nn.Module):
         B, T, D = x.shape
         pad_dim = 256 - 188
         noise = t.randn(x.shape[0], T, pad_dim, device=x.device)
+        conv1 = self.conv1d(self.noise(x))
+        x_t = x.permute(0, 2, 1)
+        conv1t = self.conv1dt(self.noise(x_t))
+
+        transformer_h = self.transformer.hid(self.noise(x))
+
+        conv1 = t.max(conv1, dim=2)[0]
+        conv1t = t.max(conv1t, dim=2)[0]
+
         x = t.cat([x, noise], dim=2)
 
         x = x.reshape(B, T, 16, 16)
 
         # changes the channels of the input image
-        x = self.input_net(x)
+        x = self.input_net(self.noise(x))
         # ResNet blocks
         x = self.blocks(x)
         # Classification output
         # ipdb.set_trace()
         x = self.output_net(x)
+        # ipdb.set_trace()
+
+        x = t.cat([x, conv1, conv1t, transformer_h], dim=1)
+        x = self.out_net(x)
         x = self.act(x)
+
         return x.squeeze(1)

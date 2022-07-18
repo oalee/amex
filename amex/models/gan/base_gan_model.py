@@ -38,7 +38,7 @@ class BaseGANModel(LightningModule):
             (pred_label.round().int() != y.squeeze().int()).nonzero().squeeze()
         )
 
-        loss = t.tensor(0, device = x.device)
+        loss = t.tensor(0.0, device=x.device, requires_grad=True)
         if pred_label_idx.numel() > 0:
             # ipdb.set_trace()
 
@@ -80,30 +80,32 @@ class BaseGANModel(LightningModule):
 
         true_label = t.ones(x.shape[0]).to(x.device)
 
-        pred_label_idx = (
-            (pred_label.round().int() != y.squeeze().int()).nonzero().squeeze()
-        )
+        loss = self.__adversarial_loss(pred_label, y)
 
-        loss = t.tensor(0, device = x.device)
-        if pred_label_idx.numel() > 0:
-            # ipdb.set_trace()
-            pred_fake_x = self.discriminator(
-                x[pred_label_idx, ...], pred_label[pred_label_idx, ...]
-            )
-            try:
-                b_size = pred_fake_x.shape[0]
-            except:
-                b_size = 1
-            t_label = t.ones(b_size).to(x.device)
-            loss = self.__adversarial_loss(pred_fake_x, t_label)
+        d_out = self.discriminator(x, pred_label)
 
-        loss = (
-            self.params.hparams.adversarial_loss_weight
-            * self.__adversarial_loss(self.discriminator(x, pred_label), true_label)
-            + self.params.hparams.classification_loss_weight
-            * self.__adversarial_loss(pred_label, y)
-            + loss
-        )
+        # pred_label_idx = (
+        #     (pred_label.round().int() != y.squeeze().int()).nonzero().squeeze()
+        # )
+
+        # loss = t.tensor(0, device=x.device)
+        # if pred_label_idx.numel() > 0:
+        #     # ipdb.set_trace()
+        #     pred_fake_x = self.discriminator(
+        #         x[pred_label_idx, ...], pred_label[pred_label_idx, ...]
+        #     )
+        #     try:
+        #         b_size = pred_fake_x.shape[0]
+        #     except:
+        #         b_size = 1
+        #     t_label = t.ones(b_size).to(x.device)
+        #     loss = self.__adversarial_loss(pred_fake_x, t_label)
+
+        loss = self.loss(d_out, true_label) + self.__adversarial_loss(pred_label, y)
+        # + self.params.hparams.classification_loss_weight
+        # * self.__adversarial_loss(pred_label, y)
+        # + loss
+        # )
 
         return loss
 
@@ -150,13 +152,37 @@ class BaseGANModel(LightningModule):
         x, labels = batch
 
         pred = self.classifier(x)
+        p_2 = pred
         metric = self.amex_metric_pytorch(labels, pred)
         # metric_two = self.amex_metric_pytorch(labels, prop_two)
         loss = self.loss(pred, labels)
 
+        d_out = self.discriminator(x, pred)
+        d_idx = ( d_out < 0.5 ).nonzero().squeeze()
+        # flip predictions where discriminators predicts otherwise
+        p_2[d_idx] = 1 - p_2[d_idx]
+
+        m_3 = self.amex_metric_pytorch(labels, p_2)
+
+
+        label_one = t.ones(x.shape[0]).to(x.device)
+        label_two = t.zeros(x.shape[0]).to(x.device)
+
+        pred_one = self.discriminator(x, label_one)
+        pred_two = self.discriminator(x, label_two)
+
+        idxs = (pred_one > 0.5).nonzero().squeeze()
+        r_idx = (pred_two > 0.5).nonzero().squeeze()        
+
+        pred[idxs, ...] = pred_one[idxs, ...]
+        pred[r_idx, ...] = 1 - pred_two[r_idx, ...]
+        m_two = self.amex_metric_pytorch(labels, pred)
+
+
+
         # self.log("amex", metric, prog_bar=True)
 
-        return {"val_loss": loss, "amex": metric}
+        return {"val_loss": loss, "amex": metric, "amex_two": m_two, "amex_three": m_3}
 
         pass
         # x, labels = batch
@@ -171,10 +197,12 @@ class BaseGANModel(LightningModule):
     def validation_epoch_end(self, outputs):
         avg_loss = t.stack([x["val_loss"] for x in outputs]).mean()
         avg_amex = t.stack([x["amex"] for x in outputs]).mean()
-        # avg_amex_two = t.stack([x["amex_two"] for x in outputs]).mean()
+        avg_amex_two = t.stack([x["amex_two"] for x in outputs]).mean()
+        avg_amex_three = t.stack([x["amex_three"] for x in outputs]).mean()
         self.log("val_loss", avg_loss, prog_bar=True)
         self.log("amex", avg_amex, prog_bar=True)
-        # self.log("amex_two", avg_amex_two, prog_bar=True)
+        self.log("amex_two", avg_amex_two, prog_bar=True)
+        self.log("amex_three", avg_amex_three, prog_bar=True)
 
     def test_step(self, batch: tuple[t.Tensor, t.Tensor], batch_idx: int):
         return

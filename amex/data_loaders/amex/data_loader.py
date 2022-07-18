@@ -2,7 +2,7 @@ import pytorch_lightning as pl
 import torch
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
-from torch.utils.data import DataLoader, TensorDataset, Dataset
+from torch.utils.data import DataLoader, TensorDataset, Dataset, WeightedRandomSampler
 
 import pandas as pd
 import numpy as np
@@ -47,6 +47,7 @@ class CustomDataModule(pl.LightningDataModule):
         self.train_batch_size = params.train_batch_size
         self.test_batch_size = params.test_batch_size
 
+        self.randomize_split = True
         # num workers = number of cpus to use
         # get number of cpu's on this device
         num_workers = os.cpu_count()
@@ -91,26 +92,36 @@ class CustomDataModule(pl.LightningDataModule):
 
         y = tensors[1]
 
-        false_indxes = (y == 0).nonzero().squeeze()
-        true_indxes = (y == 1).nonzero().squeeze()
+        if self.randomize_split:
 
-        all_false = x[false_indxes]
-        all_true = x[true_indxes]
-        # ipdb.set_trace()
+            false_indxes = (y == 0).nonzero().squeeze()
+            true_indxes = (y == 1).nonzero().squeeze()
 
-        all_true_train, all_true_test = train_test_split(
-            all_true, test_size=0.1, random_state=1
-        )
-        all_false_train, all_false_test = train_test_split(
-            all_false, test_size=0.1, random_state=1
-        )
+            all_false = x[false_indxes]
+            all_true = x[true_indxes]
+            # ipdb.set_trace()
 
-        # ipdb.set_trace()
-        self.train_tensor = CustomDataset(all_true_train, all_false_train)
+            all_true_train, all_true_test = train_test_split(
+                all_true, test_size=0.1, random_state=1
+            )
+            all_false_train, all_false_test = train_test_split(
+                all_false, test_size=0.1, random_state=1
+            )
 
-        self.val_tensor = CustomDataset(all_true_test, all_false_test)
+            # ipdb.set_trace()
+            self.train_tensor = CustomDataset(all_true_train, all_false_train)
 
-        self.test_tensor = CustomDataset(all_true_test, all_false_test)
+            self.val_tensor = CustomDataset(all_true_test, all_false_test)
+
+            self.test_tensor = CustomDataset(all_true_test, all_false_test)
+
+        else:
+
+            train_x, test_x, train_y, test_y = train_test_split(x, y, test_size=0.1)
+
+            self.train_tensor = TensorDataset(train_x, train_y)
+            self.val_tensor = TensorDataset(test_x, test_y)
+            self.test_tensor = TensorDataset(test_x, test_y)
 
         print("Shape of train data: ", tensors[0].shape)
 
@@ -150,8 +161,30 @@ class CustomDataModule(pl.LightningDataModule):
         self.test_tensor = CustomDataset(X_test, y_test)
 
     def train_dataloader(self):
+        # sampler =WeightedRandomSampler()
+        # class_one = t.sum(self.train_tensor.tensors[1] == 1)
+        # class_zero = t.sum(self.train_tensor.tensors[1] == 0)
+        # print("Class one: ", class_one)
+        # print("Class zero: ", class_zero)
+        # tot = class_one + class_zero
+
+        # # weight so that we sample equally from both classes
+        # w_class_1 = class_zero / class_one
+        # w_class_0 = 1
+
+        # weights = torch.tensor(
+        #     [0.3 if y == 1 else 0.1 for y in self.train_tensor.tensors[1]]
+        # )
+        
+        # # ipdb.set_trace()
+
+        # sampler = WeightedRandomSampler(
+        #     weights, num_samples=len(weights), replacement=True
+        # )
+
         return DataLoader(
             self.train_tensor,
+            # sampler=sampler,
             batch_size=self.train_batch_size,
             num_workers=self.num_workers,
         )
