@@ -113,9 +113,14 @@ class TabularEmbedding(nn.Module):
         for i in range(8, 11):
             embedding_type_dict[i] = nn.Embedding(7, h_embedding)
 
+  
         for i in range(11, in_features):
-            embedding_type_dict[str(i)] = nn.Linear(1, h_embedding)
-
+            embedding_type_dict[i] = (
+                nn.Sequential(GaussianNoise(0.01))
+                if h_embedding == 1
+                else nn.Sequential(GaussianNoise(0.01), nn.Linear(1, h_embedding))
+            )
+            
         self.embeddings = nn.ModuleList(list(embedding_type_dict.values()))
 
         self.na_embedding = nn.Embedding(1, h_embedding)
@@ -193,13 +198,11 @@ class Transformer(nn.Module):
     def forward(self, x):
         # size x: (batch_size, T, D)
 
-        # x = self.embedding(x)
-        # x = self.noise(x)
-        # random_noise = torch.randn(x.shape[0], x.shape[1], self.z_dim, device=x.device)
-        # x = torch.cat([x, random_noise], dim=-1)
+        if self.training:
+            rand = t.rand_like(x, device=x.device)
+            nan_mask = rand < self.params.hparams.nan_prob * t.rand(1, device=x.device)[0] 
+            x[nan_mask] = t.nan
 
-        # c_conv1d = self.conv1d(x)
-        # c_conv1d = c_conv1d.max(dim=1)[0]
         x = self.embedding(x)
 
         batch_size, tweet_length, embedding_dim = x.shape
