@@ -278,7 +278,7 @@ class DoubleConv1DClassifier(nn.Module):
 
         self.classifier = nn.Linear(128, 1)
         self.embedding = TabularEmbedding(params=params)
-        self.time_embeddig = nn.Embedding(13, 157 * self.params.hparams.feature_embedding_dim)
+        self.time_embeddig = nn.Embedding(13, 157 * self.params.hparams.feature_embed_dim)
         self.act = nn.Sigmoid()
 
     def forward(self, x):
