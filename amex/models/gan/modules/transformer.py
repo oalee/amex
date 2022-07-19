@@ -92,7 +92,7 @@ class TabularEmbeddingDecoder(nn.Module):
         super().__init__()
         self.params = params
 
-        self.h_emb_dim = params.hparams.feature_embed_dim * 2
+        self.h_emb_dim = params.hparams.g_feature_embed_dim 
         h_emb_dim = self.h_emb_dim
         in_features = params.hparams.in_features
         self.in_features = in_features
@@ -362,14 +362,14 @@ class TransformerGenerator(nn.Module):
 
         in_features = hparams.in_features
         self.in_features = in_features
-        embedding_dim = in_features * hparams.feature_embed_dim * 2
+        embedding_dim = in_features * hparams.g_feature_embed_dim
         self.embedding_dim = embedding_dim
-        self.h_emb_dim = hparams.feature_embed_dim * 2
+        self.h_emb_dim = hparams.g_feature_embed_dim
         num_heads = hparams.num_heads
         depth = hparams.depth
 
         self.feature_embedding = nn.Sequential(
-            nn.Embedding(in_features, hparams.feature_embed_dim * 2), nn.GELU()
+            nn.Embedding(in_features, hparams.g_feature_embed_dim), nn.GELU()
         )
 
         self.dim_embedding = nn.Sequential(nn.Embedding(in_features, 1), nn.GELU())

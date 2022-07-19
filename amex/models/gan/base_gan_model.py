@@ -55,24 +55,28 @@ class BaseGANModel(LightningModule):
         self.log("D_Fake_Loss", fake_loss, prog_bar=True)
         self.log("D_Real_Loss", real_loss, prog_bar=True)
 
-        loss = fake_loss + real_loss + real_loss_flip
-        return loss / 3
+        loss = fake_loss + 2* real_loss + real_loss_flip
+        return loss / 4
 
         return t_loss
 
     def __classifier_loss(self, x: t.Tensor, y):
 
+        if self.current_epoch > self.params.hparams.warmup_epochs:
+            # randomly select x or generate x
+            prob = t.rand(1)[0]
+            if prob > 0.5:
+                random_labels = t.rand_like(y, device=x.device)
+                x = self.generator(random_labels)
+                d_pred = self.discriminator(x, random_labels)
+
+                # select instances where discriminator predicts as real
+                x = x[d_pred.flatten() > 0.5]
+                y = random_labels[d_pred.flatten() > 0.5]
+
         pred_label = self.classifier(x)
 
-        true_label = t.ones(x.shape[0]).to(x.device)
-
         loss = self.__adversarial_loss(pred_label, y)
-
-        d_out = self.discriminator(x, pred_label)
-
-        loss = self.__adversarial_loss(d_out, true_label) + self.__adversarial_loss(
-            pred_label, y
-        )
 
         return loss
 
