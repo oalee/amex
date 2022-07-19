@@ -288,9 +288,10 @@ class DoubleConv1DClassifier(nn.Module):
     def forward(self, x):
 
         # randomly set 20% of data to nan
-        rand = t.rand_like(x, device=x.device)
-        nan_mask = rand < self.params.hparams.nan_prob
-        x[nan_mask] = t.nan
+        if self.training:
+            rand = t.rand_like(x, device=x.device)
+            nan_mask = rand < self.params.hparams.nan_prob * t.rand(1, device=x.device)[0] 
+            x[nan_mask] = t.nan
 
         x = self.embedding(x)
         time_embed = self.time_embeddig(t.arange(0, 13, device=x.device))

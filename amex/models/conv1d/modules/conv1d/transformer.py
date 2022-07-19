@@ -85,6 +85,17 @@ class TransformerBlock(nn.Module):
         return x
 
 
+class GaussianNoise(nn.Module):
+    def __init__(self, std):
+        super().__init__()
+        self.std = std
+
+    def forward(self, x):
+        if self.training:
+            return x + torch.randn(x.size(), device=x.device) * self.std
+        return x
+
+
 class TabularEmbedding(nn.Module):
     def __init__(self, params):
         super().__init__()
@@ -112,8 +123,10 @@ class TabularEmbedding(nn.Module):
             embedding_type_dict[i] = nn.Embedding(7, h_embedding)
 
         for i in range(11, in_features):
-            embedding_type_dict[str(i)] = (
-                nn.Sequential() if h_embedding == 1 else nn.Linear(1, h_embedding)
+            embedding_type_dict[i] = (
+                nn.Sequential(GaussianNoise(0.01))
+                if h_embedding == 1
+                else nn.Sequential(GaussianNoise(0.01), nn.Linear(1, h_embedding))
             )
 
         self.embeddings = nn.ModuleList(list(embedding_type_dict.values()))
