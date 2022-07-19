@@ -153,7 +153,11 @@ class ResNetClassifier(nn.Module):
 
         # input size is B, 13, 188
         B, T, D = x.shape
-        pad_dim = 1024 - self.params.hparams.in_features * self.params.hparams.feature_embed_dim
+        pad_dim = (
+            self.params.hparams.imsize**2
+            - self.params.hparams.in_features * self.params.hparams.feature_embed_dim
+        )
+        assert pad_dim > 0, "image size is too small"
         noise = t.randn(x.shape[0], T, pad_dim, device=x.device)
 
         # conv1 = self.conv1d(self.noise(x))
