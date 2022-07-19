@@ -92,7 +92,7 @@ class TabularEmbeddingDecoder(nn.Module):
         super().__init__()
         self.params = params
 
-        self.h_emb_dim = params.hparams.g_feature_embed_dim 
+        self.h_emb_dim = params.hparams.g_feature_embed_dim
         h_emb_dim = self.h_emb_dim
         in_features = params.hparams.in_features
         self.in_features = in_features
@@ -113,6 +113,8 @@ class TabularEmbeddingDecoder(nn.Module):
 
         self.embedding_decoders = nn.ModuleList(list(embedding_decoders.values()))
 
+        self.gelu = nn.GELU()
+
     def forward(self, x):
         B, T, D = x.shape
         x = x.view(B * T, self.in_features, self.h_emb_dim)
@@ -127,7 +129,7 @@ class TabularEmbeddingDecoder(nn.Module):
 
         for i in range(11, self.params.hparams.in_features):
             dec = self.embedding_decoders[i](x[:, i])
-            mean = t.tanh(dec[:, 0])
+            mean = self.gelu(dec[:, 0]) # allow mean to be anything
             std = t.sigmoid(dec[:, 1])
             # sample from normal distribution
             dec = t.normal(mean, std)

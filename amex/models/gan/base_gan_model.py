@@ -55,7 +55,7 @@ class BaseGANModel(LightningModule):
         self.log("D_Fake_Loss", fake_loss, prog_bar=True)
         self.log("D_Real_Loss", real_loss, prog_bar=True)
 
-        loss = fake_loss + 2* real_loss + real_loss_flip
+        loss = fake_loss + 2 * real_loss + real_loss_flip
         return loss / 4
 
         return t_loss
@@ -133,12 +133,9 @@ class BaseGANModel(LightningModule):
         x, labels = batch
 
         pred = self.classifier(x)
-        p_2 = pred
         metric = self.amex_metric_pytorch(labels, pred)
-        # metric_two = self.amex_metric_pytorch(labels, prop_two)
-        loss = self.loss(pred, labels)
 
-        # self.log("amex", metric, prog_bar=True)
+        loss = self.loss(pred, labels)
 
         return {"val_loss": loss, "amex": metric}
 
