@@ -6,7 +6,6 @@ import ipdb
 import torch as t
 
 
-
 class SelfAttention(nn.Module):
     def __init__(self, embedding_dim, heads):
         super().__init__()
@@ -112,9 +111,10 @@ class TabularEmbedding(nn.Module):
         for i in range(8, 11):
             embedding_type_dict[i] = nn.Embedding(7, h_embedding)
 
-
         for i in range(11, in_features):
-            embedding_type_dict[str(i)] = nn.Sequential() # nn.Linear(1, h_embedding)
+            embedding_type_dict[str(i)] = (
+                nn.Sequential() if h_embedding == 1 else nn.Linear(1, h_embedding)
+            )
 
         self.embeddings = nn.ModuleList(list(embedding_type_dict.values()))
 
@@ -187,8 +187,6 @@ class Transformer(nn.Module):
         self.to_probabilities = nn.Linear(embedding_dim, 1)
 
         # self.conv1d = Conv1DLayers(5, 13, embedding_dim, dropout=0.2)
-
-
 
     def forward(self, x):
         # size x: (batch_size, T, D)

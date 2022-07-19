@@ -278,18 +278,21 @@ class DoubleConv1DClassifier(nn.Module):
 
         self.classifier = nn.Linear(128, 1)
         self.embedding = TabularEmbedding(params=params)
+        self.time_embeddig = nn.Embedding(13, 157)
         self.act = nn.Sigmoid()
-
 
     def forward(self, x):
 
         # randomly set 20% of data to nan
         rand = t.rand_like(x, device=x.device)
-        nan_mask = rand < 0.2
+        nan_mask = rand < self.params.hparams.nan_prob
         x[nan_mask] = t.nan
 
-
         x = self.embedding(x)
+        time_embed = self.time_embeddig(t.arange(0, 13, device=x.device))
+
+        time_embed = time_embed.repeat(x.shape[0], 1, 1)
+        x = time_embed + x
         x_t = x.permute(0, 2, 1)
 
         x = self.layers(x)
