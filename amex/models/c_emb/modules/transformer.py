@@ -115,7 +115,7 @@ class TabularEmbedding(nn.Module):
 
 
         for i in range(11, in_features):
-            embedding_type_dict[str(i)] = nn.Linear(1, h_embedding)
+            embedding_type_dict[str(i)] = nn.Sequential() # nn.Linear(1, h_embedding)
 
         self.embeddings = nn.ModuleList(list(embedding_type_dict.values()))
 
