@@ -19,9 +19,11 @@
     },
     "hparams": {
         "hidden_dim": 1024,
-        "num_layers": 6,
-        "dropout": 0.3,
-        "noise_dim": 64
+        "in_features": 157,
+        "depth": 6,
+        "feature_embed_dim": 1,
+        "features": 157,
+        "num_heads": 8
     },
     "in_features": 188,
     "cuda": true,
