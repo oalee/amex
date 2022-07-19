@@ -267,7 +267,9 @@ class DoubleConv1DClassifier(nn.Module):
 
         # Dim -> 242 x 13
         self.transpose_layers = nn.Sequential(
-            Conv1DBlock(157, 256, 3, stride=1, padding=1),
+            Conv1DBlock(
+                157 * self.params.hparams.feature_embed_dim, 256, 3, stride=1, padding=1
+            ),
             Conv1DBlock(256, 512, 3, stride=1, padding=1),
             Conv1DBlock(512, 1024, 3, stride=1, padding=1),
             nn.MaxPool1d(2, 2),  # 1024 x 6
@@ -278,7 +280,9 @@ class DoubleConv1DClassifier(nn.Module):
 
         self.classifier = nn.Linear(128, 1)
         self.embedding = TabularEmbedding(params=params)
-        self.time_embeddig = nn.Embedding(13, 157 * self.params.hparams.feature_embed_dim)
+        self.time_embeddig = nn.Embedding(
+            13, 157 * self.params.hparams.feature_embed_dim
+        )
         self.act = nn.Sigmoid()
 
     def forward(self, x):
