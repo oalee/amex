@@ -92,7 +92,7 @@ class Transformer(nn.Module):
         hparams = params.hparams
 
         in_features = hparams.in_features
-        embedding_dim = 188
+        embedding_dim = 256
         num_heads = 16
         depth = 6
         seq_length = 13
@@ -120,6 +120,9 @@ class Transformer(nn.Module):
         self.noise = GaussianNoise(0.0001)
 
     def hid(self, x):
+
+        x = self.embedding(x)
+
         batch_size, tweet_length, embedding_dim = x.shape
         positions = torch.unsqueeze(
             self.positional_embedding(torch.arange(tweet_length, device=x.device)), 0

@@ -23,7 +23,7 @@ class BaseClassificationModel(LightningModule):
         self.loss = lambda x, y: self.critarion(x.flatten(), y.flatten())
 
     def forward(self, z: t.Tensor) -> t.Tensor:
-        out = self.generator(z)
+        out = self.classifier(z)
         return out
 
     def training_step(self, batch: tuple[t.Tensor, t.Tensor], batch_idx: int):

@@ -129,16 +129,16 @@ class ResNetClassifier(nn.Module):
 
         self.out_net = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(c_hidden[-1] * 3 + 188, 256),
-            nn.ReLU(),
-            nn.Linear(256, 1),
+            nn.Linear(c_hidden[-1], 1),
+            # nn.ReLU(),
+            # nn.Linear(256, 1),
         )
 
-        self.conv1d = Conv1DLayers(6, 13, 256, 0.2)
-        self.conv1dt = Conv1DLayers(6, 188, 256, 0.2)
+        self.conv1d = Conv1DLayers(6, 13, 256, 0.5)
+        self.conv1dt = Conv1DLayers(6, 188, 256, 0.5)
 
         self.transformer = Transformer(self.params)
-        self.noise = GaussianNoise(0.002)
+        self.noise = GaussianNoise(0.0)
 
     def init_params(self):
         # Fan-out focuses on the gradient distribution, and is commonly used in ResNets
@@ -159,7 +159,7 @@ class ResNetClassifier(nn.Module):
         x_t = x.permute(0, 2, 1)
         conv1t = self.conv1dt(self.noise(x_t))
 
-        transformer_h = self.transformer.hid(self.noise(x))
+        transformer_h = self.transformer.hid(x)
 
         conv1 = t.max(conv1, dim=2)[0]
         conv1t = t.max(conv1t, dim=2)[0]
@@ -177,7 +177,8 @@ class ResNetClassifier(nn.Module):
         x = self.output_net(x)
         # ipdb.set_trace()
 
-        x = t.cat([x, conv1, conv1t, transformer_h], dim=1)
+        x = x + conv1 + conv1t + transformer_h
+        # x = t.cat([x, conv1, conv1t, transformer_h], dim=1)
         x = self.out_net(x)
         x = self.act(x)
 

@@ -1,7 +1,9 @@
+from turtle import forward
 import torch
 from torch import nn
 import torch.nn.functional as F
 import ipdb
+import torch as t
 
 from .conv1d.conv1d import GaussianNoise, Conv1DLayers
 
@@ -85,6 +87,77 @@ class TransformerBlock(nn.Module):
         return x
 
 
+class TabularEmbedding(nn.Module):
+    def __init__(self, params):
+        super().__init__()
+        self.params = params
+        # embedding dim = params.in_feature * h_embedding_dim
+        h_embedding = 4
+        self.h_embedding_dim = h_embedding
+
+        in_features = 157
+
+        embedding_type_dict = {}
+        for i in range(4):
+            embedding_type_dict[i] = nn.Embedding(2, h_embedding)
+
+        for i in range(4, 6):
+            embedding_type_dict[i] = nn.Embedding(3, h_embedding)
+
+        for i in range(6, 7):
+            embedding_type_dict[i] = nn.Embedding(4, h_embedding)
+
+        for i in range(7, 8):
+            embedding_type_dict[i] = nn.Embedding(6, h_embedding)
+
+        for i in range(8, 11):
+            embedding_type_dict[i] = nn.Embedding(7, h_embedding)
+
+        for i in range(11, in_features):
+            embedding_type_dict[str(i)] = nn.Linear(1, h_embedding)
+
+        self.embeddings = nn.ModuleList(list(embedding_type_dict.values()))
+
+        self.na_embedding = nn.Embedding(1, h_embedding)
+
+        self.act = nn.LeakyReLU(0.2)
+
+    def __embedd_feature(self, x: t.Tensor, feature: int):
+        (B,) = x.size()
+        
+        # find nans over batch
+        nan_mask = t.isnan(x)
+        nan_count = nan_mask.sum()
+
+        output = t.zeros(B, self.h_embedding_dim, device=x.device)
+        if nan_count > 0:
+            # if there are nans, we need to replace them nan embeddings
+            nan_embedding = self.na_embedding(t.zeros(nan_count, device=x.device).int())
+            output[nan_mask] = nan_embedding
+
+        if feature < 11:
+            # input is int for embedding
+            x = x.int()
+            output[~nan_mask] = self.embeddings[feature](x[~nan_mask])
+        else:
+            x = x.unsqueeze(-1)
+            output[~nan_mask] = self.embeddings[feature](x[~nan_mask])
+
+        return output
+
+    def forward(self, x: t.Tensor):
+        # ipdb.set_trace()
+        B, T, D = x.size()
+        x = x.view(B * T, D)
+
+        embeddings = [self.__embedd_feature(x[:, i], i) for i in range(D)]
+        embeddings = torch.stack(embeddings, dim=2)
+
+        embeddings = self.act(embeddings)
+        embeddings = embeddings.view(B, T, -1)
+        return embeddings
+
+
 class Transformer(nn.Module):
     def __init__(self, params):
         super().__init__()
@@ -92,16 +165,14 @@ class Transformer(nn.Module):
         hparams = params.hparams
 
         in_features = hparams.in_features
-        embedding_dim = 188
+        embedding_dim = 157 * 4
         num_heads = 16
         depth = 6
         seq_length = 13
         dropout = 0.2
         # self.z_dim = 256 - 188
 
-        self.embedding = nn.Sequential(
-            nn.Linear(in_features, embedding_dim), nn.LeakyReLU(0.2)
-        )
+        self.embedding = TabularEmbedding(params)
 
         self.positional_embedding = nn.Embedding(
             embedding_dim=embedding_dim, num_embeddings=seq_length
@@ -115,7 +186,7 @@ class Transformer(nn.Module):
         self.transformer_blocks = nn.Sequential(*transformer_blocks)
         self.to_probabilities = nn.Linear(embedding_dim, 1)
 
-        self.conv1d = Conv1DLayers(5, 13, embedding_dim, dropout=0.2)
+        # self.conv1d = Conv1DLayers(5, 13, embedding_dim, dropout=0.2)
 
         self.noise = GaussianNoise(0.0001)
 
@@ -127,8 +198,9 @@ class Transformer(nn.Module):
         # random_noise = torch.randn(x.shape[0], x.shape[1], self.z_dim, device=x.device)
         # x = torch.cat([x, random_noise], dim=-1)
 
-        c_conv1d = self.conv1d(x)
-        c_conv1d = c_conv1d.max(dim=1)[0]
+        # c_conv1d = self.conv1d(x)
+        # c_conv1d = c_conv1d.max(dim=1)[0]
+        x = self.embedding(x)
 
         batch_size, tweet_length, embedding_dim = x.shape
         positions = torch.unsqueeze(
@@ -139,7 +211,7 @@ class Transformer(nn.Module):
         x = self.transformer_blocks(x)
         x = x.max(dim=1)[0]
 
-        x = x + c_conv1d
+        x = x  # + c_conv1d
         x = self.to_probabilities(x)
 
         return F.sigmoid(x)

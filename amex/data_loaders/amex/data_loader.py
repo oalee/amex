@@ -47,25 +47,24 @@ class CustomDataModule(pl.LightningDataModule):
         self.train_batch_size = params.train_batch_size
         self.test_batch_size = params.test_batch_size
 
-        self.randomize_split = True
+        self.randomize_split = False
         # num workers = number of cpus to use
         # get number of cpu's on this device
         num_workers = os.cpu_count()
         self.num_workers = num_workers
-        self.sc = StandardScaler()
-
+        # self.sc = StandardScaler()
+        # self._prepare_data()
+        self.prepare_tensor_data()
+        return
         print("Loading data...")
-        # self.all_data = self.load_train_df(
-        #     os.path.join(self.data_location, "train.parquet"),
-        #     os.path.join(self.data_location, "train_labels.csv"),
-        # )
+
         self.prepare_tensor_data()
         print("Setting up data...")
         # self.prepare_data()
         print("Data loaded.")
 
     def load_torch_tensor(self):
-        tensor_dict = torch.load(os.path.join(self.data_location, "tensor_dict.pt"))
+        tensor_dict = torch.load(os.path.join(self.data_location, "tensor.pt"))
         return tensor_dict["x"], tensor_dict["y"]
 
     def prepare_tensor_data(self):
@@ -127,9 +126,32 @@ class CustomDataModule(pl.LightningDataModule):
 
     def _prepare_data(self):
         # All data comumns except customer_ID, target, and S_2 are features
+        self.all_data = self.load_train_df(
+            os.path.join(self.data_location, "train.parquet"),
+            os.path.join(self.data_location, "train_labels.csv"),
+        )
         features = self.all_data.columns[2:-1]
+
+        # drop columns with more than 60% missing values
+        min_count = int(0.6 * self.all_data.shape[0] + 1)
+        self.all_data = self.all_data.dropna(axis=1, thresh=min_count)
+        ipdb.set_trace()
+
+        # drop all columns with same value in all rows
+        nonunique = self.all_data.nunique(0)
+        z_unique = nonunique[nonunique == 0].index
+        cols_to_drop = nonunique[nonunique == 1].index
+        tabular_cols = nonunique[nonunique < 10].index
+        ipdb.set_trace()
+
+        # self.all_data = self.all_data.loc[
+
+        # tabular_featue_columns = ["D_63" ,"D_64","D_68", "B_30" , "B_38", "D_114","D_117", "D_120", "D_126"
+        # binary_feature_columns = ["D_114", "D_120"]
+
+        # ipdb.set_trace()
         self.all_data[features] = self.sc.fit_transform(self.all_data[features])
-        self.all_data[features] = self.all_data[features].fillna(0)
+        self.all_data[features] = self.all_data[features].fillna(-100)
 
         # https://www.kaggle.com/competitions/amex-default-prediction/discussion/327828 !! Many Thanks @Chris Deotte for your sharing
         all_tensor_x = torch.reshape(
@@ -151,14 +173,15 @@ class CustomDataModule(pl.LightningDataModule):
             "x": all_tensor_x,
             "y": all_tensor_y,
         }
-        torch.save(tensor_dict, os.path.join(self.data_location, "tensor_dict.pt"))
+        torch.save(tensor_dict, os.path.join(self.data_location, "tensor_n_dict.pt"))
+        print("Tensor saved.")
 
         # TRAIN
-        self.train_tensor = CustomDataset(X_train, y_train)
+        self.train_tensor = TensorDataset(X_train, y_train)
         # VAL
-        self.val_tensor = CustomDataset(X_val, y_val)
+        self.val_tensor = TensorDataset(X_val, y_val)
         # TEST
-        self.test_tensor = CustomDataset(X_test, y_test)
+        self.test_tensor = TensorDataset(X_test, y_test)
 
     def train_dataloader(self):
         # sampler =WeightedRandomSampler()
@@ -175,7 +198,7 @@ class CustomDataModule(pl.LightningDataModule):
         # weights = torch.tensor(
         #     [0.3 if y == 1 else 0.1 for y in self.train_tensor.tensors[1]]
         # )
-        
+
         # # ipdb.set_trace()
 
         # sampler = WeightedRandomSampler(
