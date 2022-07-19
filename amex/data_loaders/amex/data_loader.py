@@ -210,6 +210,7 @@ class CustomDataModule(pl.LightningDataModule):
             # sampler=sampler,
             batch_size=self.train_batch_size,
             num_workers=self.num_workers,
+            shuffle=True,
         )
 
     def val_dataloader(self):
