@@ -92,8 +92,8 @@ class TabularEmbedding(nn.Module):
         super().__init__()
         self.params = params
         # embedding dim = params.in_feature * h_embedding_dim
-        h_embedding = 4
         self.h_embedding_dim = params.hparams.feature_embed_dim
+        h_embedding = params.hparams.feature_embed_dim
 
         in_features = 157
 
@@ -165,7 +165,7 @@ class Transformer(nn.Module):
         hparams = params.hparams
 
         in_features = hparams.in_features
-        embedding_dim = 157 * 4
+        embedding_dim = in_features * hparams.feature_embed_dim
         num_heads = 16
         depth = 6
         seq_length = 13

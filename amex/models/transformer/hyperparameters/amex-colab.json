@@ -20,7 +20,7 @@
     "hparams": {
         "in_features": 157,
         "depth": 6,
-        "feature_embed_dim": 4,
+        "feature_embed_dim": 2,
         "features": 157,
         "num_heads": 8
     },
