@@ -93,7 +93,7 @@ class TabularEmbedding(nn.Module):
         self.params = params
         # embedding dim = params.in_feature * h_embedding_dim
         h_embedding = 4
-        self.h_embedding_dim = h_embedding
+        self.h_embedding_dim = params.hparams.feature_embed_dim
 
         in_features = 157
 
@@ -124,7 +124,7 @@ class TabularEmbedding(nn.Module):
 
     def __embedd_feature(self, x: t.Tensor, feature: int):
         (B,) = x.size()
-        
+
         # find nans over batch
         nan_mask = t.isnan(x)
         nan_count = nan_mask.sum()

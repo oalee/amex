@@ -17,11 +17,12 @@
         "early_stopping_patience": 100,
         "monitor": "val_loss"
     },
-    "hparams":{
+    "hparams": {
         "in_features": 157,
-        "depth":6,
-        "embedding_dim":512,
-        "num_heads":8
+        "depth": 6,
+        "feature_embed_dim": 4,
+        "features": 157,
+        "num_heads": 8
     },
     "in_features": 188,
     "cuda": true,
