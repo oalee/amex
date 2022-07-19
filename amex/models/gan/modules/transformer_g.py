@@ -82,6 +82,8 @@ class TransformerBlock(nn.Module):
         # x = self.do(x)
         return x
 
+        
+
 
 class Transformer(nn.Module):
     def __init__(self, params):

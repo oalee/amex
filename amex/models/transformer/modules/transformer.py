@@ -113,19 +113,20 @@ class TabularEmbedding(nn.Module):
         for i in range(8, 11):
             embedding_type_dict[i] = nn.Embedding(7, h_embedding)
 
-  
         for i in range(11, in_features):
             embedding_type_dict[i] = (
                 nn.Sequential(GaussianNoise(0.01))
                 if h_embedding == 1
                 else nn.Sequential(GaussianNoise(0.01), nn.Linear(1, h_embedding))
             )
-            
+
         self.embeddings = nn.ModuleList(list(embedding_type_dict.values()))
 
         self.na_embedding = nn.Embedding(1, h_embedding)
 
-        self.act = nn.LeakyReLU(0.2)
+        self.act = nn.GELU()
+
+        self.pos_emb = nn.Embedding(params.hparams.in_features, h_embedding)
 
     def __embedd_feature(self, x: t.Tensor, feature: int):
         (B,) = x.size()
@@ -158,7 +159,13 @@ class TabularEmbedding(nn.Module):
         embeddings = [self.__embedd_feature(x[:, i], i) for i in range(D)]
         embeddings = torch.stack(embeddings, dim=2)
 
+        pos_emb = self.pos_emb(t.arange(D, device=x.device))
+        pos_emb = pos_emb.repeat(B * T, 1, 1).flatten(1)
+        # ipdb.set_trace()
+        embeddings = embeddings.flatten(1)
+        embeddings = embeddings + pos_emb
         embeddings = self.act(embeddings)
+
         embeddings = embeddings.view(B, T, -1)
         return embeddings
 
@@ -200,7 +207,10 @@ class Transformer(nn.Module):
 
         if self.training:
             rand = t.rand_like(x, device=x.device)
-            nan_mask = rand < self.params.hparams.nan_prob * t.rand(1, device=x.device)[0] 
+            nan_mask = (
+                rand < self.params.hparams.nan_prob * t.rand(1, device=x.device)[0]
+            )
+            # ipdb.set_trace()
             x[nan_mask] = t.nan
 
         x = self.embedding(x)

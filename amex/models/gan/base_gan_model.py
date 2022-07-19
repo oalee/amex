@@ -16,7 +16,7 @@ class BaseGANModel(LightningModule):
     def __init__(self, params: Namespace):
         super().__init__()
         self.params = params
-        # self.generator: t.nn.Module
+        self.generator: t.nn.Module
         self.discriminator: t.nn.Module
         self.classifier = t.nn.Module
 
@@ -32,46 +32,26 @@ class BaseGANModel(LightningModule):
 
     def __discriminator_loss(self, x, y):
 
-        pred_label = self.classifier(x)
+        pred_label = self.discriminator(x, y)
 
-        pred_label_idx = (
-            (pred_label.round().int() != y.squeeze().int()).nonzero().squeeze()
-        )
+        rand_y = t.rand_like(y)
+        rand_y = (rand_y > 0.5).float()
 
-        loss = t.tensor(0.0, device=x.device, requires_grad=True)
-        if pred_label_idx.numel() > 0:
-            # ipdb.set_trace()
+        fake_x = self.generator(rand_y)
+        pred_fake_x = self.discriminator(fake_x, rand_y)
 
-            pred_fake_x = self.discriminator(
-                x[pred_label_idx, ...], pred_label[pred_label_idx, ...]
-            )
-            try:
-                b_size = pred_fake_x.shape[0]
-            except:
-                b_size = 1
-            fake_t_label = t.zeros(b_size).to(x.device)
-            loss = self.__adversarial_loss(pred_fake_x, fake_t_label)
+        true_label = t.ones(*y.shape).to(x.device)
+        fake_label = t.zeros(*y.shape).to(x.device)
 
-        pred_real_x = self.discriminator(x, y)
+        fake_loss = self.__adversarial_loss(pred_fake_x, fake_label)
+        real_loss = self.__adversarial_loss(pred_label, true_label)
 
-        # real invert 0 and 1
-        y_invert = 1 - y
-        pred_y_invernt = self.discriminator(x, y_invert)
+        self.log("D_Fake_Loss", fake_loss, prog_bar=True)
+        self.log("D_Real_Loss", real_loss, prog_bar=True)
 
-        real_label = t.ones(x.shape[0]).to(x.device)
-        fake_label = t.zeros(x.shape[0]).to(x.device)
+        loss = fake_loss + real_loss
+        return loss / 2
 
-        loss = [
-            self.__adversarial_loss(pred_real_x, real_label),
-            loss,
-            self.__adversarial_loss(pred_y_invernt, fake_label),
-        ]
-
-        t_loss = t.stack(loss).sum() / 3
-        self.log("D_loss", t_loss, prog_bar=True)
-        self.log("D_Real_loss", loss[0], prog_bar=True)
-        self.log("D_Fake_loss", loss[1], prog_bar=True)
-        # self.log("D_Invert_loss", loss[2], prog_bar=True)
         return t_loss
 
     def __classifier_loss(self, x: t.Tensor, y):
@@ -84,29 +64,18 @@ class BaseGANModel(LightningModule):
 
         d_out = self.discriminator(x, pred_label)
 
-        # pred_label_idx = (
-        #     (pred_label.round().int() != y.squeeze().int()).nonzero().squeeze()
-        # )
+        loss = self.__adversarial_loss(d_out, true_label) + self.__adversarial_loss(
+            pred_label, y
+        )
 
-        # loss = t.tensor(0, device=x.device)
-        # if pred_label_idx.numel() > 0:
-        #     # ipdb.set_trace()
-        #     pred_fake_x = self.discriminator(
-        #         x[pred_label_idx, ...], pred_label[pred_label_idx, ...]
-        #     )
-        #     try:
-        #         b_size = pred_fake_x.shape[0]
-        #     except:
-        #         b_size = 1
-        #     t_label = t.ones(b_size).to(x.device)
-        #     loss = self.__adversarial_loss(pred_fake_x, t_label)
+        return loss
 
-        loss = self.loss(d_out, true_label) + self.__adversarial_loss(pred_label, y)
-        # + self.params.hparams.classification_loss_weight
-        # * self.__adversarial_loss(pred_label, y)
-        # + loss
-        # )
+    def __generator_loss(self, y):
+        fake_x = self.generator(y)
+        pred_fake_x = self.discriminator(fake_x, y)
+        true_label = t.ones(*y.shape).to(y.device)
 
+        loss = self.__adversarial_loss(pred_fake_x, true_label)
         return loss
 
     def training_step(
@@ -116,23 +85,25 @@ class BaseGANModel(LightningModule):
 
         B, T, D = x.shape
 
+        random_labels = t.rand_like(labels)
+        # convert to zero and ones
+        random_labels = (random_labels > 0.5).float()
+
         # # train generator
-        # if optimizer_idx == 0:
+        if optimizer_idx == 0:
 
-        #     pred_label = self.discriminator(fake_x, labels)
-
-        #     true_label = t.ones(B).to(x.device)
-        #     loss = self.__adversarial_loss(pred_label, true_label)
-        #     self.log("G_Loss", loss, prog_bar=True)
-        #     return {"loss": loss}
+            loss = self.__generator_loss(random_labels)
+            self.log("G_Loss", loss, prog_bar=True)
+            return {"loss": loss}
 
         # train discriminator
-        if optimizer_idx == 0:
+        if optimizer_idx == 1:
             loss = self.__discriminator_loss(x, labels)
+            # self.log("D_Loss", loss, prog_bar=True)
             return {"loss": loss}
 
         # train classifier
-        if optimizer_idx == 1:
+        if optimizer_idx == 2:
 
             # pred_label = self.classifier(x)
             loss = self.__classifier_loss(x, labels)
@@ -157,52 +128,16 @@ class BaseGANModel(LightningModule):
         # metric_two = self.amex_metric_pytorch(labels, prop_two)
         loss = self.loss(pred, labels)
 
-        d_out = self.discriminator(x, pred)
-        d_idx = ( d_out < 0.5 ).nonzero().squeeze()
-        # flip predictions where discriminators predicts otherwise
-        p_2[d_idx] = 1 - p_2[d_idx]
-
-        m_3 = self.amex_metric_pytorch(labels, p_2)
-
-
-        label_one = t.ones(x.shape[0]).to(x.device)
-        label_two = t.zeros(x.shape[0]).to(x.device)
-
-        pred_one = self.discriminator(x, label_one)
-        pred_two = self.discriminator(x, label_two)
-
-        idxs = (pred_one > 0.5).nonzero().squeeze()
-        r_idx = (pred_two > 0.5).nonzero().squeeze()        
-
-        pred[idxs, ...] = pred_one[idxs, ...]
-        pred[r_idx, ...] = 1 - pred_two[r_idx, ...]
-        m_two = self.amex_metric_pytorch(labels, pred)
-
-
-
         # self.log("amex", metric, prog_bar=True)
 
-        return {"val_loss": loss, "amex": metric, "amex_two": m_two, "amex_three": m_3}
-
-        pass
-        # x, labels = batch
-        # y_pred = self.classifier(x)
-        # loss = self.loss(y_pred, labels)
-
-        # amex = self.amex_metric_pytorch(labels, y_pred)
-        # amex = t.tensor(amex)
-
-        # return {"val_loss": loss, "amex": amex}
+        return {"val_loss": loss, "amex": metric}
 
     def validation_epoch_end(self, outputs):
         avg_loss = t.stack([x["val_loss"] for x in outputs]).mean()
         avg_amex = t.stack([x["amex"] for x in outputs]).mean()
-        avg_amex_two = t.stack([x["amex_two"] for x in outputs]).mean()
-        avg_amex_three = t.stack([x["amex_three"] for x in outputs]).mean()
+
         self.log("val_loss", avg_loss, prog_bar=True)
         self.log("amex", avg_amex, prog_bar=True)
-        self.log("amex_two", avg_amex_two, prog_bar=True)
-        self.log("amex_three", avg_amex_three, prog_bar=True)
 
     def test_step(self, batch: tuple[t.Tensor, t.Tensor], batch_idx: int):
         return
@@ -225,7 +160,9 @@ class BaseGANModel(LightningModule):
 
     def configure_optimizers(self):
 
-        # generate = mate.Optimizer(self.params.optimizer, self.generator).get_optimizer()
+        generator = mate.Optimizer(
+            self.params.optimizer, self.generator
+        ).get_optimizer()
         discriminator = mate.Optimizer(
             self.params.optimizer, self.discriminator
         ).get_optimizer()
@@ -234,7 +171,7 @@ class BaseGANModel(LightningModule):
             self.params.optimizer, self.classifier
         ).get_optimizer()
 
-        return [discriminator, classifier]
+        return [generator, discriminator, classifier]
 
     def amex_metric_pytorch(self, y_true: t.Tensor, y_pred: t.Tensor):
 

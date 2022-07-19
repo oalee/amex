@@ -9,18 +9,24 @@ from .modules.conv1d.conv1d import (
 )
 from .modules.lstm import LSTMClassifier
 from .modules.transformer_g import Transformer
-from .modules.transformer import TransformerDiscriminator
+from .modules.transformer import (
+    TransformerDiscriminator,
+    TransformerGenerator,
+    TransformerClassifier,
+)
 from .modules.conv2d.resnet import ResNetClassifier, ResNetDiscriminator
 
 
 class Model(BaseGANModel):
     def __init__(self, params: Namespace):
         super().__init__(params)
-        self.discriminator = ResNetDiscriminator(
-            params, [4, 4, 4, 4], [32, 64, 128, 256], in_channel=13, num_classes=1  
-        )
-        # self.generator = Transformer(params)
+        self.discriminator = TransformerDiscriminator(params)
+        # ResNetDiscriminator(
+        #     params, [4, 4, 4, 4], [32, 64, 128, 256], in_channel=13, num_classes=1
+        # )
+        self.generator = TransformerGenerator(params)
         # self.classifier = FATConv1dClassifier()
-        self.classifier = ResNetClassifier(
-            params, [4, 4, 4, 4], [32, 64, 128, 256], in_channel=13, num_classes=1
-        )
+        self.classifier = TransformerClassifier(params)
+        # ResNetClassifier(
+        #     params, [4, 4, 4, 4], [32, 64, 128, 256], in_channel=13, num_classes=1
+        # )

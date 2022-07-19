@@ -104,7 +104,7 @@ class Conv1Discriminator(nn.Module):
         # x_t = self.noise(x)
         # x = self.noise(x)
         # ipdb.set_trace()
-        x = x + cond # t.cat([x, cond], dim=2)
+        x = x + cond  # t.cat([x, cond], dim=2)
         # x_t = t.cat([x_t, cond], dim=2)
         # ipdb.set_trace()
         # x_t = x_t.permute(0, 2, 1)
@@ -114,7 +114,7 @@ class Conv1Discriminator(nn.Module):
         # ipdb.set_trace()
         x = t.max(x, dim=2)[0]
         # x_t = t.max(x_t, dim=2)[0]
-        x = x  
+        x = x
         x = x.view(x.shape[0], -1)
         x = self.fc(x)
         x = self.act(x)
@@ -268,7 +268,7 @@ class FitConv1dClassifier(nn.Module):
 
 
 class GaussianNoise(nn.Module):
-    def __init__(self, stddev, minmax=True):
+    def __init__(self, stddev, minmax=False):
         super().__init__()
         self.stddev = stddev
         self.minmax = minmax
@@ -279,10 +279,10 @@ class GaussianNoise(nn.Module):
                 range = x.max() - x.min()
                 noise = t.randn(x.shape).to(x.device) * range * self.stddev
             else:
-                sign = t.randn(x.shape).to(x.device)
-                sign[sign > 0.5] = 1
-                sign[sign < 0.5] = -1
-                noise = t.randn(x.shape).to(x.device) * self.stddev * sign
+                # sign = t.randn(x.shape).to(x.device)
+                # sign[sign > 0.5] = 1
+                # sign[sign < 0.5] = -1
+                noise = t.randn(x.shape).to(x.device) * self.stddev
             return x + noise
         else:
             return x
