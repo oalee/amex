@@ -288,10 +288,9 @@ class DoubleConv1DClassifier(nn.Module):
         nan_mask = rand < 0.2
         x[nan_mask] = t.nan
 
-        
-        x = self.embedding(x)
 
-        x_t = x_t.permute(0, 2, 1)
+        x = self.embedding(x)
+        x_t = x.permute(0, 2, 1)
 
         x = self.layers(x)
         x = x.max(dim=2)[0]
