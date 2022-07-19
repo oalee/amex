@@ -2,6 +2,9 @@ import torch as t
 from torch import nn
 import ipdb
 import torch.nn.functional as F
+from .transformer import TabularEmbedding
+
+
 class Conv1DLayers(nn.Module):
     def __init__(self, layers, in_channels, out_channels, dropout=0.2) -> None:
         super().__init__()
@@ -27,6 +30,7 @@ class Conv1DLayers(nn.Module):
     def forward(self, x):
         x = self.layers(x)
         return x
+
 
 class Conv1DBlock(nn.Module):
     def __init__(
@@ -263,7 +267,7 @@ class DoubleConv1DClassifier(nn.Module):
 
         # Dim -> 242 x 13
         self.transpose_layers = nn.Sequential(
-            Conv1DBlock(188, 256, 3, stride=1, padding=1),
+            Conv1DBlock(157, 256, 3, stride=1, padding=1),
             Conv1DBlock(256, 512, 3, stride=1, padding=1),
             Conv1DBlock(512, 1024, 3, stride=1, padding=1),
             nn.MaxPool1d(2, 2),  # 1024 x 6
@@ -273,28 +277,19 @@ class DoubleConv1DClassifier(nn.Module):
         )
 
         self.classifier = nn.Linear(128, 1)
+        self.embedding = TabularEmbedding(params=params)
         self.act = nn.Sigmoid()
-        self.noise_layer = GaussianNoise(0.02)
-        self.noise_two_layer = GaussianNoise(0.01)
+
 
     def forward(self, x):
-        x_t = self.noise_two_layer(x)
-        x = self.noise_layer(x)
-        x = x.squeeze(1)
-        if self.params.hparams.noise_dim > 0:
-            rand_noise = t.randn(*x.shape[:2], self.params.hparams.noise_dim).to(
-                x.device
-            )
-            # x = t.cat([x, rand_noise], dim=2)
-            rand_noise = t.randn(*x.shape[:2], self.params.hparams.noise_dim).to(
-                x.device
-            )
-            # x_t = t.cat([x_t, rand_noise], dim=2)
 
-            # shuffle dim 2
-            # idx = t.randperm(x.shape[2])
-            # x = x[:, :, idx]
-            # x_t = x_t[:, :, idx]
+        # randomly set 20% of data to nan
+        rand = t.rand_like(x, device=x.device)
+        nan_mask = rand < 0.2
+        x[nan_mask] = t.nan
+
+        
+        x = self.embedding(x)
 
         x_t = x_t.permute(0, 2, 1)
 

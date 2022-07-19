@@ -193,14 +193,12 @@ class Transformer(nn.Module):
 
     def forward(self, x):
         # size x: (batch_size, T, D)
+        
+        # randomly set 20% of data to nan
+        rand = t.rand_like(x, device=x.device)
+        nan_mask = rand < 0.2
+        x[nan_mask] = t.nan
 
-        # x = self.embedding(x)
-        # x = self.noise(x)
-        # random_noise = torch.randn(x.shape[0], x.shape[1], self.z_dim, device=x.device)
-        # x = torch.cat([x, random_noise], dim=-1)
-
-        # c_conv1d = self.conv1d(x)
-        # c_conv1d = c_conv1d.max(dim=1)[0]
         x = self.embedding(x)
 
         batch_size, tweet_length, embedding_dim = x.shape

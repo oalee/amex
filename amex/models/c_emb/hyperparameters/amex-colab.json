@@ -1,7 +1,7 @@
 {
     "optimizer": {
         "type": "adam",
-        "lr": 0.0004,
+        "lr": 0.004,
         "beta1": 0.5,
         "beta2": 0.999,
         "lr_scheduler": {
