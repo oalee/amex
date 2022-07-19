@@ -46,11 +46,17 @@ class BaseGANModel(LightningModule):
         fake_loss = self.__adversarial_loss(pred_fake_x, fake_label)
         real_loss = self.__adversarial_loss(pred_label, true_label)
 
+        # flip 0s and 1s in y
+        y_flip = 1 - y
+        pred_label_flip = self.discriminator(x, y_flip)
+        real_loss_flip = self.__adversarial_loss(pred_label_flip, fake_label)
+
+        self.log("F_Flip_Loss", real_loss_flip, prog_bar=True)
         self.log("D_Fake_Loss", fake_loss, prog_bar=True)
         self.log("D_Real_Loss", real_loss, prog_bar=True)
 
-        loss = fake_loss + real_loss
-        return loss / 2
+        loss = fake_loss + real_loss + real_loss_flip
+        return loss / 3
 
         return t_loss
 

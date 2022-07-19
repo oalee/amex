@@ -359,7 +359,10 @@ class TransformerGenerator(nn.Module):
         super().__init__()
         self.params = params
         hparams = params.hparams
-
+        hparams["feature_embed_dim"] = 2
+        params["hparams"] = hparams
+        self.params = params
+        
         in_features = hparams.in_features
         self.in_features = in_features
         embedding_dim = in_features * hparams.feature_embed_dim
