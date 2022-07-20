@@ -11,16 +11,16 @@ from torchmetrics import Accuracy
 import mate
 import numpy as np
 
-
+import monai
 
 
 class BaseClassificationModel(LightningModule):
     def __init__(self, params: Namespace):
         super().__init__()
         self.params = params
-        self.classifier : t.nn.Module
-        self.critarion = t.nn.BCELoss()
-        self.loss = lambda x, y: self.critarion(x.flatten(), y.flatten())
+        self.classifier: t.nn.Module
+        self.critarion = monai.losses.DiceLoss(sigmoid=True)
+        self.loss = lambda x, y: self.critarion(x, y.unsqueeze(1))
 
     def forward(self, z: t.Tensor) -> t.Tensor:
         out = self.classifier(z)
@@ -69,7 +69,6 @@ class BaseClassificationModel(LightningModule):
         # amex = self.amex_metric(labels.cpu().numpy(), y_pred.cpu().numpy())
         amex = self.amex_metric_pytorch(labels, y_pred)
 
-
         return {"test_loss": loss, "amex": amex}
 
     def test_epoch_end(self, outputs):
@@ -81,10 +80,11 @@ class BaseClassificationModel(LightningModule):
         return {"test_loss": avg_loss, "amex": amex}
 
     def configure_optimizers(self):
+        import torch_optimizer as optim
 
+        optimizer = optim.lamb.Lamb(self.parameters(), lr=0.003)
 
-        return mate.Optimizer(self.params.optimizer, self.classifier).get_optimizer()
-
+        return optimizer#, mate.Optimizer(self.params.optimizer, self.classifier).get_optimizer()
 
     def amex_metric_pytorch(self, y_true: t.Tensor, y_pred: t.Tensor):
 
@@ -119,4 +119,3 @@ class BaseClassificationModel(LightningModule):
         g = gini / gini_max
 
         return 0.5 * (g + d)
-
