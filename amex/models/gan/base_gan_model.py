@@ -55,8 +55,8 @@ class BaseGANModel(LightningModule):
         self.log("D_Fake_Loss", fake_loss, prog_bar=True)
         self.log("D_Real_Loss", real_loss, prog_bar=True)
 
-        loss = fake_loss + 2 * real_loss + real_loss_flip
-        return loss / 4
+        loss = fake_loss +  real_loss + real_loss_flip
+        return loss / 3
 
         return t_loss
 

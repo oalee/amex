@@ -196,7 +196,9 @@ class Transformer(nn.Module):
             )
 
         self.transformer_blocks = nn.Sequential(*transformer_blocks)
-        self.to_probabilities = nn.Linear(embedding_dim, 1)
+        self.to_probabilities = nn.Sequential(
+            nn.Flatten(), nn.Linear(embedding_dim * 13, 1)
+        )
 
         # self.conv1d = Conv1DLayers(5, 13, embedding_dim, dropout=0.2)
 
@@ -222,7 +224,8 @@ class Transformer(nn.Module):
 
         x = x + positions
         x = self.transformer_blocks(x)
-        x = x.max(dim=1)[0]
+        # ipdb.set_trace()
+        # x = x.max(dim=1)[0]
 
         x = x  # + c_conv1d
         x = self.to_probabilities(x)

@@ -109,7 +109,7 @@ class TabularEmbeddingDecoder(nn.Module):
         for i in range(8, 11):
             embedding_decoders[i] = nn.Linear(h_emb_dim, 7)
         for i in range(11, in_features):
-            embedding_decoders[i] = nn.Linear(h_emb_dim, 2)  # Mean and std
+            embedding_decoders[i] = nn.Linear(h_emb_dim, 1)  # Mean and std
 
         self.embedding_decoders = nn.ModuleList(list(embedding_decoders.values()))
 
@@ -129,10 +129,11 @@ class TabularEmbeddingDecoder(nn.Module):
 
         for i in range(11, self.params.hparams.in_features):
             dec = self.embedding_decoders[i](x[:, i])
-            mean = self.gelu(dec[:, 0]) # allow mean to be anything
-            std = t.sigmoid(dec[:, 1])
-            # sample from normal distribution
-            dec = t.normal(mean, std)
+            dec = t.tanh(dec.squeeze(1))
+            # mean = t.tanh(dec[:, 0])
+            # std = t.sigmoid(dec[:, 1])
+            # # sample from normal distribution
+            # dec = t.normal(mean, std)
             # ipdb.set_trace()
             outs.append(dec)
 
@@ -327,9 +328,7 @@ class TransformerDiscriminator(nn.Module):
 
         if self.training:
             rand = t.rand_like(x, device=x.device)
-            nan_mask = (
-                rand < self.params.hparams.nan_prob * t.rand(1, device=x.device)[0]
-            )
+            nan_mask = rand < 0.8 * t.rand(1, device=x.device)[0]
             # ipdb.set_trace()
             x[nan_mask] = t.nan
 

@@ -76,15 +76,16 @@ class CustomDataModule(pl.LightningDataModule):
         if self.params.contains("normalization"):
 
             maxes = torch.tensor(
-                [torch.max(tensors[0][:, :, i]) for i in range(tensors[0].shape[2])]
+                [torch.max(tensors[0][:, :, i]) for i in range(11, tensors[0].shape[2])]
             )
             mins = torch.tensor(
-                [torch.min(tensors[0][:, :, i]) for i in range(tensors[0].shape[2])]
+                [torch.min(tensors[0][:, :, i]) for i in range(11, tensors[0].shape[2])]
             )
             normalize = lambda x: 2 * (x - mins) / (maxes - mins) - 1
 
             if self.params.normalization == "tanh":
-                x = normalize(x)
+                x[:, :, 11:] = normalize(x[:, :, 11:])
+                # x = normalize(x)
             elif self.params.normalization == "sigmoid":
                 normalize = lambda x: (x - mins) / (maxes - mins)
                 x = normalize(x)

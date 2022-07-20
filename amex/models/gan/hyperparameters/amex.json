@@ -35,5 +35,5 @@
     "early_stopping_patience": 5,
     "data_location": "./data/",
     "data_loader": "amex",
-    "normalization": "none"
+    "normalization": "tanh"
 }
