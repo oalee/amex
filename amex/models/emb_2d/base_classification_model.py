@@ -12,15 +12,15 @@ import mate
 import numpy as np
 
 
-
+import monai
 
 class BaseClassificationModel(LightningModule):
     def __init__(self, params: Namespace):
         super().__init__()
         self.params = params
         self.classifier : t.nn.Module
-        self.critarion = t.nn.BCELoss()
-        self.loss = lambda x, y: self.critarion(x.flatten(), y.flatten())
+        self.critarion = monai.losses.DiceLoss()
+        self.loss = lambda x, y: self.critarion(x.unsqueeze(1), y.unsqueeze(1))
 
     def forward(self, z: t.Tensor) -> t.Tensor:
         out = self.generator(z)
@@ -70,8 +70,12 @@ class BaseClassificationModel(LightningModule):
 
         return {"test_loss": avg_loss, "amex": amex}
 
+    # def configure_optimizers(self):
     def configure_optimizers(self):
+        # import torch_optimizer as optim
+        # optimizer = optim.lamb.Lamb(self.parameters(), lr=0.003)
 
+        # return optimizer
 
         return mate.Optimizer(self.params.optimizer, self.classifier).get_optimizer()
 
