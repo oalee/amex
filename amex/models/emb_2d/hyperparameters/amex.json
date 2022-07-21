@@ -20,11 +20,11 @@
     "hparams": {
         "in_features": 157,
         "depth": 6,
-        "feature_embed_dim": 2,
+        "feature_embed_dim": 4,
         "features": 157,
         "num_heads": 8,
-        "imsize": 32,
-        "nan_prob": 0.4
+        "imsize": 64,
+        "nan_prob": 0.35
     },
     "in_features": 188,
     "cuda": true,
