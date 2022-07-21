@@ -143,19 +143,9 @@ class AxialClassifier(nn.Module):
 
         x = self.embedding(x)
 
-        # B, T, H = x.shape
-
-        # x = x.view(B, T, 157, self.params.hparams.feature_embed_dim)
         x = self.axial_layers(x)
-        # positions = positions.repeat(B, 1, C, 1)
-
-        # x = x + positions
-        # ipdb.set_trace()
-
-        # ipdb.set_trace()
-        # x = x.max(dim=-1)[0]
 
         x = x  # + c_conv1d
         x = self.to_probabilities(x)
 
-        return F.sigmoid(x)
+        return x

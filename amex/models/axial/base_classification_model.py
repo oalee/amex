@@ -19,11 +19,11 @@ class BaseClassificationModel(LightningModule):
         super().__init__()
         self.params = params
         self.classifier: t.nn.Module
-        self.critarion = t.nn.BCELoss()
-        # monai.losses.DiceLoss(sigmoid=True)
+        self.critarion = t.nn.BCEWithLogitsLoss(pos_weight=t.tensor([3]))
+        # t.nn.BCELoss()
         self.loss = lambda x, y: self.critarion(x, y.unsqueeze(1))
 
-        self.automatic_optimization = False
+        self.automatic_optimization = True
 
     def forward(self, z: t.Tensor) -> t.Tensor:
         out = self.generator(z)
@@ -33,17 +33,17 @@ class BaseClassificationModel(LightningModule):
         x, labels = batch
         # ipdb.set_trace()
 
-        optimizer = self.optimizers()
+        # optimizer = self.optimizers()
 
         y_pred = self.classifier(x)
         loss = self.loss(y_pred, labels)
-        self.manual_backward(loss)
-        optimizer.first_step(zero_grad=True)
+        # self.manual_backward(loss)
+        # optimizer.first_step(zero_grad=True)
 
-        # second forward-backward pass
-        loss_2 = self.loss(self.classifier(x), labels)
-        self.manual_backward(loss_2)
-        optimizer.second_step(zero_grad=True)
+        # # second forward-backward pass
+        # loss_2 = self.loss(self.classifier(x), labels)
+        # self.manual_backward(loss_2)
+        # optimizer.second_step(zero_grad=True)
 
         self.log("loss", loss, prog_bar=True)
 
@@ -92,13 +92,16 @@ class BaseClassificationModel(LightningModule):
         # optimizer = optim.lamb.Lamb(self.parameters(), lr=0.03)
 
         # return optimizer
-        base_optimizer = t.optim.SGD
-        # ipdb.set_trace()
-        optimizer = SAM(
-            self.classifier.parameters(), base_optimizer, lr=0.001, momentum=0.9
-        )
+        # base_optimizer = t.optim.SGD
+        # # ipdb.set_trace()
+        # optimizer = SAM(
+        #     self.classifier.parameters(),
+        #     base_optimizer,
+        #     lr=self.params.optimizer.lr,
+        #     momentum=0.9,
+        # )
 
-        return optimizer  # mate.Optimizer(self.params.optimizer, self.classifier).get_optimizer()
+        return mate.Optimizer(self.params.optimizer, self.classifier).get_optimizer()
 
     def amex_metric_pytorch(self, y_true: t.Tensor, y_pred: t.Tensor):
 

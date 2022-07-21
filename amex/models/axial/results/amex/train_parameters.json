@@ -1,7 +1,7 @@
 {
     "optimizer": {
         "type": "adam",
-        "lr": 0.0004,
+        "lr": 0.01,
         "beta1": 0.5,
         "beta2": 0.999,
         "lr_scheduler": {
@@ -23,7 +23,7 @@
         "feature_embed_dim": 64,
         "features": 157,
         "num_heads": 8,
-        "nan_prob":0.1
+        "nan_prob":0.05
     },
     "in_features": 188,
     "cuda": true,

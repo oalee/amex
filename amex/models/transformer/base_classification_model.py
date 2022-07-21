@@ -70,10 +70,10 @@ class BaseClassificationModel(LightningModule):
         return {"test_loss": avg_loss, "amex": amex}
 
     def configure_optimizers(self):
-        import torch_optimizer as optim
-        optimizer = optim.lamb.Lamb(self.parameters(), lr=0.03)
+        # import torch_optimizer as optim
+        # optimizer = optim.lamb.Lamb(self.parameters(), lr=0.03)
 
-        return optimizer
+        # return optimizer
 
         return mate.Optimizer(self.params.optimizer, self.classifier).get_optimizer()
 

@@ -153,6 +153,14 @@ class ResNetClassifier(nn.Module):
 
         # input size is B, 13, 188
         B, T, D = x.shape
+
+        if self.training:
+            rand = t.rand_like(x, device=x.device)
+            nan_mask = (
+                rand < self.params.hparams.nan_prob * t.rand(1, device=x.device)[0]
+            )
+            x[nan_mask] = t.nan
+
         pad_dim = (
             self.params.hparams.imsize**2
             - self.params.hparams.in_features * self.params.hparams.feature_embed_dim
@@ -187,6 +195,6 @@ class ResNetClassifier(nn.Module):
         # x = x + conv1 + conv1t + transformer_h
         # x = t.cat([x, conv1, conv1t, transformer_h], dim=1)
         # x = self.out_net(x)
-        x = self.act(x)
+        # x = self.act(x)
 
         return x.squeeze(1)

@@ -19,7 +19,7 @@ class BaseClassificationModel(LightningModule):
         super().__init__()
         self.params = params
         self.classifier: t.nn.Module
-        self.critarion = monai.losses.DiceLoss(sigmoid=True)
+        self.critarion = t.nn.BCEWithLogitsLoss(pos_weight=t.tensor([3]))# monai.losses.DiceLoss(sigmoid=True)
         self.loss = lambda x, y: self.critarion(x, y.unsqueeze(1))
 
     def forward(self, z: t.Tensor) -> t.Tensor:

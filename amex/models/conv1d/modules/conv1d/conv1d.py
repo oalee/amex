@@ -311,7 +311,7 @@ class DoubleConv1DClassifier(nn.Module):
         x = x + x_t
 
         x = self.classifier(x)
-        x = self.act(x)
+        # x = self.act(x)
         return x
 
 

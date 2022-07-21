@@ -23,7 +23,8 @@
         "feature_embed_dim": 2,
         "features": 157,
         "num_heads": 8,
-        "imsize": 32
+        "imsize": 32,
+        "nan_prob": 0.4
     },
     "in_features": 188,
     "cuda": true,
