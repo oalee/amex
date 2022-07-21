@@ -62,7 +62,7 @@ class ResNetClassifier(nn.Module):
         self,
         params,
         num_blocks=[4, 4, 4, 4],
-        c_hidden=[32, 64, 128, 256],
+        c_hidden=[64, 128, 256, 512],
         in_channel=13,
         num_classes=1,
     ):
@@ -181,7 +181,7 @@ class ResNetClassifier(nn.Module):
 
         x = t.cat([x, noise], dim=2)
 
-        x = x.reshape(B, T, 32, 32)
+        x = x.reshape(B, T, self.params.hparams.imsize, self.params.hparams.imsize)
 
         # changes the channels of the input image
         x = self.input_net(x)

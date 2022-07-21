@@ -134,7 +134,7 @@ class AxialClassifier(nn.Module):
         in_features = hparams.in_features
         embedding_dim = hparams.feature_embed_dim
         num_heads = 16
-        depth = 6
+        depth = hparams.depth
         seq_length = 13
         dropout = 0.2
         # self.z_dim = 256 - 188
@@ -145,13 +145,15 @@ class AxialClassifier(nn.Module):
             embedding_dim=embedding_dim * in_features, num_embeddings=seq_length
         )
 
-        self.to_probabilities = nn.Sequential(nn.Flatten(), nn.Linear(13 * 157, 1))
+        self.to_probabilities = nn.Sequential(
+            nn.Flatten(), nn.Linear(embedding_dim * 157, 1)
+        )
 
         self.axial_layers = AxialLayers(
             embedding_dim=embedding_dim,
-            num_layers=12,
+            num_layers=depth,
             dropout=dropout,
-            residual=True,
+            residual=False,
         )
 
         self.noise = GaussianNoise(0.0001)
@@ -172,7 +174,7 @@ class AxialClassifier(nn.Module):
         x = self.axial_layers(x)
 
         x = x  # + c_conv1d
-        x = t.max(x, dim=-1)[0]
+        x = t.max(x, dim=1)[0]
         x = self.to_probabilities(x)
 
         return x

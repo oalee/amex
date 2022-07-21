@@ -6,7 +6,12 @@ from .modules.lstm import LSTMClassifier
 from .modules.transformer import Transformer
 from .modules.conv2d.resnet import ResNetClassifier
 
+
 class Model(BaseClassificationModel):
     def __init__(self, params: Namespace):
         super().__init__(params)
-        self.classifier = ResNetClassifier(params)
+        self.classifier = ResNetClassifier(
+            params,
+            num_blocks=[4, 6, 4, 6],
+            c_hidden=[64, 128, 256, 512],
+        )
