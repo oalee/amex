@@ -94,6 +94,37 @@ class TabularEmbedding(nn.Module):
 from axial_attention import AxialAttention
 
 
+class AxialLayers(nn.Module):
+    def __init__(self, embedding_dim, num_layers, dropout, residual=False):
+        super().__init__()
+        self.embedding_dim = embedding_dim
+        self.num_layers = num_layers
+        self.dropout = dropout
+        self.residual = residual
+
+        self.attention = AxialAttention(embedding_dim)
+
+        self.layers = nn.ModuleList(
+            [
+                nn.Sequential(
+                    AxialAttention(embedding_dim, 2),
+                    nn.Dropout(dropout),
+                    nn.GELU(),
+                )
+                for _ in range(num_layers)
+            ]
+        )
+
+    def forward(self, x):
+        for i in range(self.num_layers):
+            x_ = self.layers[i](x)
+            if self.residual:
+                x = x_ + x
+            else:
+                x = x_
+        return x
+
+
 class AxialClassifier(nn.Module):
     def __init__(self, params):
         super().__init__()
@@ -114,18 +145,13 @@ class AxialClassifier(nn.Module):
             embedding_dim=embedding_dim * in_features, num_embeddings=seq_length
         )
 
-        self.to_probabilities = nn.Sequential(
-            nn.Flatten(), nn.Linear(13 * embedding_dim * 157, 1)
-        )
+        self.to_probabilities = nn.Sequential(nn.Flatten(), nn.Linear(13 * 157, 1))
 
-        self.axial_layers = nn.Sequential(
-            AxialAttention(embedding_dim, 2, heads=8),
-            nn.GELU(),
-            AxialAttention(embedding_dim, 2, heads=8),
-            nn.GELU(),
-            AxialAttention(embedding_dim, 2, heads=8),
-            nn.GELU(),
-            AxialAttention(embedding_dim, 2, heads=8),
+        self.axial_layers = AxialLayers(
+            embedding_dim=embedding_dim,
+            num_layers=12,
+            dropout=dropout,
+            residual=True,
         )
 
         self.noise = GaussianNoise(0.0001)
@@ -146,6 +172,7 @@ class AxialClassifier(nn.Module):
         x = self.axial_layers(x)
 
         x = x  # + c_conv1d
+        x = t.max(x, dim=-1)[0]
         x = self.to_probabilities(x)
 
         return x
