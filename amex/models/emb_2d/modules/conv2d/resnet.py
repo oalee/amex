@@ -156,9 +156,11 @@ class ResNetClassifier(nn.Module):
 
         if self.training:
             rand = t.rand_like(x, device=x.device)
-            nan_mask = (
-                rand < self.params.hparams.nan_prob * t.rand(1, device=x.device)[0]
-            )
+            max_prob = self.params.hparams.nan_prob
+            min_prob = self.params.hparams.min_nan_prob
+            # nan_prob is between min_nan_prob and max_nan_prob
+            nan_prob = min_prob + (max_prob - min_prob) * t.rand(1, device=x.device)[0]
+            nan_mask = rand < nan_prob
             x[nan_mask] = t.nan
 
         pad_dim = (
