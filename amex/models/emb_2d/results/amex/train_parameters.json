@@ -1,18 +1,14 @@
 {
     "optimizer": {
         "type": "adam",
-        "lr": 0.0004,
+        "lr": 0.004,
         "beta1": 0.5,
         "beta2": 0.999,
         "lr_scheduler": {
-            "type": "reduce_on_plateau",
-            "mode": "min",
-            "factor": 0.1,
-            "threshold": 1e-1,
-            "threshold_mode": "rel",
-            "patience": 0,
-            "monitor": "val_loss",
-            "verbose": true
+            "type": "step",
+            "gamma": 0.1,
+            "step_size": 1,
+            "monitor": "val_loss"
         },
         "early_stopping_patience": 100,
         "monitor": "val_loss"
@@ -20,11 +16,12 @@
     "hparams": {
         "in_features": 157,
         "depth": 6,
-        "feature_embed_dim": 2,
+        "feature_embed_dim": 8,
         "features": 157,
         "num_heads": 8,
-        "imsize": 32,
-        "nan_prob": 0.4
+        "imsize": 48,
+        "nan_prob": 0.7,
+        "min_nan_prob": 0.2
     },
     "in_features": 188,
     "cuda": true,

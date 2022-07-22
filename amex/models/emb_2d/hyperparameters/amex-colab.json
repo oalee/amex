@@ -5,14 +5,10 @@
         "beta1": 0.5,
         "beta2": 0.999,
         "lr_scheduler": {
-            "type": "reduce_on_plateau",
-            "mode": "min",
-            "factor": 0.1,
-            "threshold": 1e-1,
-            "threshold_mode": "rel",
-            "patience": 0,
-            "monitor": "val_loss",
-            "verbose": true
+            "type": "step",
+            "gamma": 0.1,
+            "step_size": 1,
+            "monitor": "val_loss"
         },
         "early_stopping_patience": 100,
         "monitor": "val_loss"
@@ -24,7 +20,8 @@
         "features": 157,
         "num_heads": 8,
         "imsize": 48,
-        "nan_prob": 0.4
+        "nan_prob": 0.8,
+        "min_nan_prob": 0.2
     },
     "in_features": 188,
     "cuda": true,

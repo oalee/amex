@@ -1,3 +1,4 @@
+from argparse import Namespace
 from typing import Type, Any, Callable, Union, List, Optional
 
 import torch
@@ -7,7 +8,8 @@ from torch import Tensor
 # from _internally_replaced_utils
 from torchvision._internally_replaced_utils import load_state_dict_from_url
 from torchvision.utils import _log_api_usage_once
-
+from ..transformer import TabularEmbedding
+import torch as t
 
 __all__ = [
     "ResNet",
@@ -36,7 +38,9 @@ model_urls = {
 }
 
 
-def conv3x3(in_planes: int, out_planes: int, stride: int = 1, groups: int = 1, dilation: int = 1) -> nn.Conv2d:
+def conv3x3(
+    in_planes: int, out_planes: int, stride: int = 1, groups: int = 1, dilation: int = 1
+) -> nn.Conv2d:
     """3x3 convolution with padding"""
     return nn.Conv2d(
         in_planes,
@@ -123,6 +127,7 @@ class Bottleneck(nn.Module):
         base_width: int = 64,
         dilation: int = 1,
         norm_layer: Optional[Callable[..., nn.Module]] = None,
+        droupout: float = 0.5,
     ) -> None:
         super().__init__()
         if norm_layer is None:
@@ -138,7 +143,7 @@ class Bottleneck(nn.Module):
         self.relu = nn.ReLU(inplace=True)
         self.downsample = downsample
         self.stride = stride
-        self.do = nn.Dropout(0.2)
+        self.do = nn.Dropout(droupout)
 
     def forward(self, x: Tensor) -> Tensor:
         identity = x
@@ -169,9 +174,10 @@ class Bottleneck(nn.Module):
 class ResNet(nn.Module):
     def __init__(
         self,
+        params: Namespace,
         block: Type[Union[BasicBlock, Bottleneck]],
         layers: List[int],
-        num_classes: int = 1000,
+        num_classes: int = 1,
         zero_init_residual: bool = False,
         groups: int = 1,
         width_per_group: int = 64,
@@ -180,6 +186,7 @@ class ResNet(nn.Module):
     ) -> None:
         super().__init__()
         _log_api_usage_once(self)
+        self.params = params
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
         self._norm_layer = norm_layer
@@ -197,16 +204,26 @@ class ResNet(nn.Module):
             )
         self.groups = groups
         self.base_width = width_per_group
-        self.conv1 = nn.Conv2d(13, self.inplanes, kernel_size=7, stride=2, padding=3, bias=False)
+        self.conv1 = nn.Conv2d(
+            13, self.inplanes, kernel_size=7, stride=2, padding=3, bias=False
+        )
         self.bn1 = norm_layer(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         self.layer1 = self._make_layer(block, 64, layers[0])
-        self.layer2 = self._make_layer(block, 128, layers[1], stride=2, dilate=replace_stride_with_dilation[0])
-        self.layer3 = self._make_layer(block, 256, layers[2], stride=2, dilate=replace_stride_with_dilation[1])
-        self.layer4 = self._make_layer(block, 512, layers[3], stride=2, dilate=replace_stride_with_dilation[2])
+        self.layer2 = self._make_layer(
+            block, 128, layers[1], stride=2, dilate=replace_stride_with_dilation[0]
+        )
+        self.layer3 = self._make_layer(
+            block, 256, layers[2], stride=2, dilate=replace_stride_with_dilation[1]
+        )
+        self.layer4 = self._make_layer(
+            block, 512, layers[3], stride=2, dilate=replace_stride_with_dilation[2]
+        )
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Linear(512 * block.expansion, num_classes)
+
+        self.embedding = TabularEmbedding(self.params)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -248,7 +265,14 @@ class ResNet(nn.Module):
         layers = []
         layers.append(
             block(
-                self.inplanes, planes, stride, downsample, self.groups, self.base_width, previous_dilation, norm_layer
+                self.inplanes,
+                planes,
+                stride,
+                downsample,
+                self.groups,
+                self.base_width,
+                previous_dilation,
+                norm_layer,
             )
         )
         self.inplanes = planes * block.expansion
@@ -269,14 +293,28 @@ class ResNet(nn.Module):
     def _forward_impl(self, x: Tensor) -> Tensor:
         # See note [TorchScript super()]
 
-
-        # input size is B, 13, 188
         B, T, D = x.shape
-        pad_dim = 256 - 188
-        noise = torch.randn(x.shape[0], T, pad_dim, device=x.device)
-        x = torch.cat([x, noise], dim=2)
 
-        x = x.reshape(B, T, 16, 16)
+        if self.training:
+            rand = t.rand_like(x, device=x.device)
+            max_prob = self.params.hparams.nan_prob
+            min_prob = self.params.hparams.min_nan_prob
+            # nan_prob is between min_nan_prob and max_nan_prob
+            nan_prob = min_prob + (max_prob - min_prob) * t.rand(1, device=x.device)[0]
+            nan_mask = rand < nan_prob
+            x[nan_mask] = t.nan
+
+        pad_dim = (
+            self.params.hparams.imsize**2
+            - self.params.hparams.in_features * self.params.hparams.feature_embed_dim
+        )
+        assert pad_dim > 0, "image size is too small"
+        noise = t.randn(x.shape[0], T, pad_dim, device=x.device)
+        x = self.embedding(x)
+
+        x = t.cat([x, noise], dim=2)
+
+        x = x.reshape(B, T, self.params.hparams.imsize, self.params.hparams.imsize)
 
         x = self.conv1(x)
         x = self.bn1(x)
@@ -292,7 +330,7 @@ class ResNet(nn.Module):
         x = torch.flatten(x, 1)
         x = self.fc(x)
 
-        return torch.sigmoid(x)
+        return x.squeeze(-1)
 
     def forward(self, x: Tensor) -> Tensor:
         return self._forward_impl(x)
@@ -354,7 +392,9 @@ def resnet101(pretrained: bool = False, progress: bool = True, **kwargs: Any) ->
         pretrained (bool): If True, returns a model pre-trained on ImageNet
         progress (bool): If True, displays a progress bar of the download to stderr
     """
-    return _resnet("resnet101", Bottleneck, [3, 4, 23, 3], pretrained, progress, **kwargs)
+    return _resnet(
+        "resnet101", Bottleneck, [3, 4, 23, 3], pretrained, progress, **kwargs
+    )
 
 
 def resnet152(pretrained: bool = False, progress: bool = True, **kwargs: Any) -> ResNet:
@@ -365,10 +405,14 @@ def resnet152(pretrained: bool = False, progress: bool = True, **kwargs: Any) ->
         pretrained (bool): If True, returns a model pre-trained on ImageNet
         progress (bool): If True, displays a progress bar of the download to stderr
     """
-    return _resnet("resnet152", Bottleneck, [3, 8, 36, 3], pretrained, progress, **kwargs)
+    return _resnet(
+        "resnet152", Bottleneck, [3, 8, 36, 3], pretrained, progress, **kwargs
+    )
 
 
-def resnext50_32x4d(pretrained: bool = False, progress: bool = True, **kwargs: Any) -> ResNet:
+def resnext50_32x4d(
+    pretrained: bool = False, progress: bool = True, **kwargs: Any
+) -> ResNet:
     r"""ResNeXt-50 32x4d model from
     `"Aggregated Residual Transformation for Deep Neural Networks" <https://arxiv.org/pdf/1611.05431.pdf>`_.
 
@@ -378,10 +422,14 @@ def resnext50_32x4d(pretrained: bool = False, progress: bool = True, **kwargs: A
     """
     kwargs["groups"] = 32
     kwargs["width_per_group"] = 4
-    return _resnet("resnext50_32x4d", Bottleneck, [3, 4, 6, 3], pretrained, progress, **kwargs)
+    return _resnet(
+        "resnext50_32x4d", Bottleneck, [3, 4, 6, 3], pretrained, progress, **kwargs
+    )
 
 
-def resnext101_32x8d(pretrained: bool = False, progress: bool = True, **kwargs: Any) -> ResNet:
+def resnext101_32x8d(
+    pretrained: bool = False, progress: bool = True, **kwargs: Any
+) -> ResNet:
     r"""ResNeXt-101 32x8d model from
     `"Aggregated Residual Transformation for Deep Neural Networks" <https://arxiv.org/pdf/1611.05431.pdf>`_.
 
@@ -391,10 +439,14 @@ def resnext101_32x8d(pretrained: bool = False, progress: bool = True, **kwargs: 
     """
     kwargs["groups"] = 32
     kwargs["width_per_group"] = 8
-    return _resnet("resnext101_32x8d", Bottleneck, [3, 4, 23, 3], pretrained, progress, **kwargs)
+    return _resnet(
+        "resnext101_32x8d", Bottleneck, [3, 4, 23, 3], pretrained, progress, **kwargs
+    )
 
 
-def wide_resnet50_2(pretrained: bool = False, progress: bool = True, **kwargs: Any) -> ResNet:
+def wide_resnet50_2(
+    pretrained: bool = False, progress: bool = True, **kwargs: Any
+) -> ResNet:
     r"""Wide ResNet-50-2 model from
     `"Wide Residual Networks" <https://arxiv.org/pdf/1605.07146.pdf>`_.
 
@@ -408,10 +460,14 @@ def wide_resnet50_2(pretrained: bool = False, progress: bool = True, **kwargs: A
         progress (bool): If True, displays a progress bar of the download to stderr
     """
     kwargs["width_per_group"] = 64 * 2
-    return _resnet("wide_resnet50_2", Bottleneck, [3, 4, 6, 3], pretrained, progress, **kwargs)
+    return _resnet(
+        "wide_resnet50_2", Bottleneck, [3, 4, 6, 3], pretrained, progress, **kwargs
+    )
 
 
-def wide_resnet101_2(pretrained: bool = False, progress: bool = True, **kwargs: Any) -> ResNet:
+def wide_resnet101_2(
+    pretrained: bool = False, progress: bool = True, **kwargs: Any
+) -> ResNet:
     r"""Wide ResNet-101-2 model from
     `"Wide Residual Networks" <https://arxiv.org/pdf/1605.07146.pdf>`_.
 
@@ -425,4 +481,6 @@ def wide_resnet101_2(pretrained: bool = False, progress: bool = True, **kwargs: 
         progress (bool): If True, displays a progress bar of the download to stderr
     """
     kwargs["width_per_group"] = 64 * 2
-    return _resnet("wide_resnet101_2", Bottleneck, [3, 4, 23, 3], pretrained, progress, **kwargs)
+    return _resnet(
+        "wide_resnet101_2", Bottleneck, [3, 4, 23, 3], pretrained, progress, **kwargs
+    )

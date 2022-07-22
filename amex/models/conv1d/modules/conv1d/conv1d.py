@@ -262,7 +262,7 @@ class DoubleConv1DClassifier(nn.Module):
             nn.MaxPool1d(2, 2),  # 1024 x 31
             Conv1DBlock(1024, 512, 3, stride=1, padding=1),
             Conv1DBlock(512, 256, 3, stride=1, padding=1),
-            Conv1DBlock(256, 128, 3, stride=1, padding=1),
+            # Conv1DBlock(256, 128, 3, stride=1, padding=1),
         )
 
         # Dim -> 242 x 13
@@ -275,10 +275,10 @@ class DoubleConv1DClassifier(nn.Module):
             nn.MaxPool1d(2, 2),  # 1024 x 6
             Conv1DBlock(1024, 512, 3, stride=1, padding=1),
             Conv1DBlock(512, 256, 3, stride=1, padding=1),
-            Conv1DBlock(256, 128, 3, stride=1, padding=1),
+            # Conv1DBlock(256, 128, 3, stride=1, padding=1),
         )
 
-        self.classifier = nn.Linear(128, 1)
+        self.classifier = nn.Linear(256, 1)
         self.embedding = TabularEmbedding(params=params)
         self.time_embeddig = nn.Embedding(
             13, 157 * self.params.hparams.feature_embed_dim
@@ -290,7 +290,11 @@ class DoubleConv1DClassifier(nn.Module):
         # randomly set 20% of data to nan
         if self.training:
             rand = t.rand_like(x, device=x.device)
-            nan_mask = rand < self.params.hparams.nan_prob * t.rand(1, device=x.device)[0] 
+            max_prob = self.params.hparams.nan_prob
+            min_prob = self.params.hparams.min_nan_prob
+            # nan_prob is between min_nan_prob and max_nan_prob
+            nan_prob = min_prob + (max_prob - min_prob) * t.rand(1, device=x.device)[0]
+            nan_mask = rand < nan_prob
             x[nan_mask] = t.nan
 
         x = self.embedding(x)

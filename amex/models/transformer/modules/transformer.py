@@ -230,4 +230,4 @@ class Transformer(nn.Module):
         x = x  # + c_conv1d
         x = self.to_probabilities(x)
 
-        return F.sigmoid(x)
+        return x

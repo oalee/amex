@@ -20,10 +20,10 @@
     "hparams": {
         "in_features": 157,
         "depth": 6,
-        "feature_embed_dim": 2,
+        "feature_embed_dim": 1,
         "features": 157,
         "num_heads": 8,
-        "nan_prob":0.1
+        "nan_prob": 0.4
     },
     "in_features": 188,
     "cuda": true,

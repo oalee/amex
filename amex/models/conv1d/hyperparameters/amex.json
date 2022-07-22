@@ -24,7 +24,8 @@
         "feature_embed_dim": 4,
         "features": 157,
         "num_heads": 8,
-        "nan_prob": 0.5
+        "nan_prob": 0.75,
+        "min_nan_prob": 0.2
     },
     "in_features": 188,
     "cuda": true,
