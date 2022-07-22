@@ -15,7 +15,7 @@ class Model(BaseClassificationModel):
             params,
             Bottleneck,
             [3, 4, 6, 3],
-            width_per_group=128,
+            width_per_group=64,
             replace_stride_with_dilation=[True, True, True],
         )
         # ResNetClassifier(
