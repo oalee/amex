@@ -21,7 +21,7 @@
         "num_heads": 8,
         "imsize": 48,
         "nan_prob": 0.8,
-        "min_nan_prob": 0.3
+        "min_nan_prob": 0.2
     },
     "in_features": 188,
     "cuda": true,
