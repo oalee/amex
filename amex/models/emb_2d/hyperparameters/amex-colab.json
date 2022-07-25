@@ -31,5 +31,25 @@
     "early_stopping_patience": 5,
     "data_location": "./data/",
     "data_loader": "amex",
-    "normalization": "none"
+    "normalization": "none",
+    "ResNet": {
+        "block": "BasicBlock",
+        "layers": [
+            3,
+            4,
+            6,
+            3
+        ],
+        "num_classes": 1000,
+        "in_channels": 3,
+        "zero_init_residual": false,
+        "groups": 1,
+        "width_per_group": 64,
+        "replace_stride_with_dilation": [
+            false,
+            false,
+            false
+        ],
+        "norm_layer": "BatchNorm2d"
+    }
 }

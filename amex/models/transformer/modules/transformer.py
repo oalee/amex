@@ -88,7 +88,7 @@ class TransformerBlock(nn.Module):
 
 
 class TabularEmbedding(nn.Module):
-    def __init__(self, params):
+    def __init__(self, params, embed_time=False):
         super().__init__()
         self.params = params
         # embedding dim = params.in_feature * h_embedding_dim
@@ -96,6 +96,9 @@ class TabularEmbedding(nn.Module):
         h_embedding = params.hparams.feature_embed_dim
 
         in_features = 157
+
+        self.time_embedding = nn.Embedding(13, in_features)
+        self.embed_time = embed_time
 
         embedding_type_dict = {}
         for i in range(4):
@@ -115,9 +118,11 @@ class TabularEmbedding(nn.Module):
 
         for i in range(11, in_features):
             embedding_type_dict[i] = (
-                nn.Sequential(GaussianNoise(0.01))
+                nn.Sequential(GaussianNoise(params.hparams.noise_std))
                 if h_embedding == 1
-                else nn.Sequential(GaussianNoise(0.01), nn.Linear(1, h_embedding))
+                else nn.Sequential(
+                    GaussianNoise(params.hparams.noise_std), nn.Linear(1, h_embedding)
+                )
             )
 
         self.embeddings = nn.ModuleList(list(embedding_type_dict.values()))
@@ -167,6 +172,13 @@ class TabularEmbedding(nn.Module):
         embeddings = self.act(embeddings)
 
         embeddings = embeddings.view(B, T, -1)
+
+        if self.embed_time:
+            time_embeddings = self.time_embedding(t.arange(T, device=x.device)).expand(
+                B, T, 157 * self.h_embedding_dim
+            )
+            embeddings = embeddings + time_embeddings
+
         return embeddings
 
 

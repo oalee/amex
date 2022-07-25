@@ -10,7 +10,6 @@ from torchmetrics import Accuracy
 
 import mate
 import numpy as np
-import monai
 
 
 class BaseClassificationModel(LightningModule):

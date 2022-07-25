@@ -6,11 +6,14 @@ from .modules.lstm import LSTMClassifier
 from .modules.transformer import Transformer
 from .modules.conv2d.resnet import ResNetClassifier
 from .modules.conv2d.resnet_official import wide_resnet101_2, ResNet, Bottleneck
-
+# from .modules.resnet.resnet import ResNet
+import ipdb
 
 class Model(BaseClassificationModel):
     def __init__(self, params: Namespace):
         super().__init__(params)
+        ipdb.set_trace()
+        # self.resnet = ResNet(*params.resnet)
         self.classifier = ResNetClassifier(
             params,
             num_blocks=[4, 6, 4, 6],
